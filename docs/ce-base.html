@@ -1,0 +1,146 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Using a base class</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="ce-base chapter">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="ce-attributes.html"> &laquo; Effective attributes</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="index.html"> Structuring Components &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    Eliminating element boilerplate
+  </aside>
+  <h1>Using a base class</h1>
+<p>In the chapter on element definition, I noted that in almost all cases, our elements must inherit from <var>HTMLElement</var>. However, there's no rule that we can't create an intermediate class that smooths over some of the rough edges of the custom element API. Indeed, this is essentially all that libraries like <a href="https://lit-element.polymer-project.org/">LitElement</a> do!</p>
+<p>A good base class doesn't have to be very long, and it will make a substantial difference in the developer experience. Here's a starter class that handles the material we've covered so far &mdash; we'll continue adding to this base class throughout the book.</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CustomElement</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+    <span class="hljs-keyword">var</span> def = <span class="hljs-keyword">new</span>.target;
+
+    <span class="hljs-keyword">if</span> (def.boundMethods) {
+      <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> f <span class="hljs-keyword">of</span> def.boundMethods) {
+        <span class="hljs-built_in">this</span>[f] = <span class="hljs-built_in">this</span>[f].bind(<span class="hljs-built_in">this</span>);
+      }
+    }
+
+    <span class="hljs-keyword">if</span> (def.mirroredProps) {
+      def.mirroredProps.forEach(<span class="hljs-function"><span class="hljs-params">f</span> =&gt;</span> {
+        <span class="hljs-built_in">Object</span>.defineProperty(<span class="hljs-built_in">this</span>, f, {
+          <span class="hljs-function"><span class="hljs-title">get</span>(<span class="hljs-params"></span>)</span> {
+            <span class="hljs-keyword">return</span> <span class="hljs-built_in">this</span>.getAttribute(f);
+          },
+
+          <span class="hljs-function"><span class="hljs-title">set</span>(<span class="hljs-params">v</span>)</span> {
+            <span class="hljs-built_in">this</span>.setAttribute(f, v);
+          }
+        })
+      });
+    }
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-function"><span class="hljs-title">define</span>(<span class="hljs-params">tag</span>)</span> {
+    <span class="hljs-keyword">try</span> {
+      <span class="hljs-built_in">window</span>.customElements.define(tag, <span class="hljs-built_in">this</span>);
+    } <span class="hljs-keyword">catch</span> (err) {
+      <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Unable to (re)define <span class="hljs-subst">${tag}</span>`</span>);
+    }
+  }
+
+}</pre></code>
+<p>To use this class, just use it as the target of <var>extends</var> when defining your custom elements:</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExampleElement</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">CustomElement</span> </span>{ ...</pre></code>
+<h2 id="whats-going-on-in-there">What's going on in there?</h2>
+<p>Most of the work of our base class takes place in the constructor. First, we call <var>super()</var>, as we're required to do by the spec. Next, we use <var>new.target</var> to get a reference to the actual class being constructed &mdash; the one for our element itself, not <var>CustomElement</var> or <var>HTMLElement</var>.</p>
+<p>With the class definition in hand, we can start eliminating boilerplate. The first thing we do is look at the class to see if it has a <var>boundMethods</var> property (or, more accurately, a getter that returns an array). All of those methods will be bound to this particular instance, so that their <var>this</var> value will always be the element, which makes it easier to set them as event listeners or callbacks. Essentially, we're going from this:</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExampleElement</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+
+    <span class="hljs-comment">// bind event listener methods</span>
+    <span class="hljs-comment">// this is common in React codebases</span>
+    <span class="hljs-built_in">this</span>.onClick = <span class="hljs-built_in">this</span>.onClick.bind(<span class="hljs-built_in">this</span>);
+    <span class="hljs-built_in">this</span>.onKeyDown = <span class="hljs-built_in">this</span>.onKeyDown.bind(<span class="hljs-built_in">this</span>);
+    <span class="hljs-built_in">this</span>.onBlur = <span class="hljs-built_in">this</span>.onBlur.bind(<span class="hljs-built_in">this</span>);
+
+    <span class="hljs-built_in">this</span>.addEventListener(<span class="hljs-string">&quot;click&quot;</span>, <span class="hljs-built_in">this</span>.onClick);
+    <span class="hljs-built_in">this</span>.addEventListener(<span class="hljs-string">&quot;keydown&quot;</span>, <span class="hljs-built_in">this</span>.onKeyDown);
+    <span class="hljs-built_in">this</span>.addEventListener(<span class="hljs-string">&quot;blur&quot;</span>, <span class="hljs-built_in">this</span>.onBlur);
+  }
+}</pre></code>
+<p>... to this:</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExampleElement</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">CustomElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+
+    <span class="hljs-built_in">this</span>.addEventListener(<span class="hljs-string">&quot;click&quot;</span>, <span class="hljs-built_in">this</span>.onClick);
+    <span class="hljs-built_in">this</span>.addEventListener(<span class="hljs-string">&quot;keydown&quot;</span>, <span class="hljs-built_in">this</span>.onKeyDown);
+    <span class="hljs-built_in">this</span>.addEventListener(<span class="hljs-string">&quot;blur&quot;</span>, <span class="hljs-built_in">this</span>.onBlur);
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">boundMethods</span>() {
+    <span class="hljs-keyword">return</span> [ <span class="hljs-string">&quot;onClick&quot;</span>, <span class="hljs-string">&quot;onKeyDown&quot;</span>, <span class="hljs-string">&quot;onBlur&quot;</span> ];
+  }
+}</pre></code>
+<p>It's not a huge change, but it's a little less verbose, and having a single place to do binding &mdash; rather than doing it on demand or scattered through the code &mdash; is helpful when collaborating on a team. Using the same pattern as <var>observedAttributes</var> means that these habits reinforce each other.</p>
+<p>Next, our constructor does something similar for mirrored properties:</p>
+<code class="language-js"><pre><span class="hljs-keyword">if</span> (def.mirroredProps) {
+  def.mirroredProps.forEach(<span class="hljs-function"><span class="hljs-params">f</span> =&gt;</span> {
+    <span class="hljs-built_in">Object</span>.defineProperty(<span class="hljs-built_in">this</span>, f, {
+      <span class="hljs-function"><span class="hljs-title">get</span>(<span class="hljs-params"></span>)</span> {
+        <span class="hljs-keyword">return</span> <span class="hljs-built_in">this</span>.getAttribute(f);
+      },
+
+      <span class="hljs-function"><span class="hljs-title">set</span>(<span class="hljs-params">v</span>)</span> {
+        <span class="hljs-built_in">this</span>.setAttribute(f, v);
+      }
+    })
+  });
+}</pre></code>
+<p>If our class definition has a <var>mirroredProps</var> getter, similar to <var>boundMethods</var> or <var>observedAttributes</var>, our class runs through that array and creates a getter/setter for each one. For example, we might define a class like this:</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExampleElement</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">CustomElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">observedAttributes</span>() {
+    <span class="hljs-keyword">return</span> [ <span class="hljs-string">&quot;src&quot;</span>, <span class="hljs-string">&quot;width&quot;</span>, <span class="hljs-string">&quot;height&quot;</span> ];
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">mirroredProps</span>() {
+    <span class="hljs-keyword">return</span> [ <span class="hljs-string">&quot;src&quot;</span>, <span class="hljs-string">&quot;width&quot;</span>, <span class="hljs-string">&quot;height&quot;</span> ];
+  }
+}</pre></code>
+<p>Our ExampleElement will get <var>attributeChangedCallback()</var> notifications for "src", "width", and "height" attributes, but it will also automatically have <var>src</var>, <var>width</var>, and <var>height</var> properties on the element itself that affect those attributes. This means you can call <var>setAttribute()</var> a lot less in your code, and your element will behave more like the built-ins that people are used to.</p>
+<p>You could set this code to work from the actual <var>observedAttributes</var> value instead of <var>mirroredProps</var>, since we almost always want "live" attributes to be mirrored. I think there's value in having these be separate concepts, even if it does mean a little duplications.</p>
+<p>Finally, there's a fun little static method outside of the constructor on our <var>CustomElement</var> class:</p>
+<code class="language-js"><pre><span class="hljs-keyword">static</span> <span class="hljs-function"><span class="hljs-title">define</span>(<span class="hljs-params">tag</span>)</span> {
+  <span class="hljs-keyword">try</span> {
+    <span class="hljs-built_in">window</span>.customElements.define(tag, <span class="hljs-built_in">this</span>);
+  } <span class="hljs-keyword">catch</span> (err) {
+    <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Unable to (re)define <span class="hljs-subst">${tag}</span>`</span>);
+  }
+}</pre></code>
+<p>This wrapper around the custom elements registry makes it a little easier to register tags, since we can just do it from the class:</p>
+<code class="language-js"><pre>ExampleElement.define(<span class="hljs-string">&quot;example-element&quot;</span>);</pre></code>
+<p>It also adds a little safety to the registration process. Calling <var>customElements.define()</var> with the same tag name twice will normally throw an error, which in bundled applications probably doesn't matter very much. However, if you're providing your elements as an embed code for CMS or document use, people may be including your script multiple times on a page, which would mean your element definition may be run repeatedly for no good reason. In this case, by catching the error, we can avoid a crash when the element has already been defined.</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="ce-attributes.html"> &laquo; Effective attributes</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="index.html"> Structuring Components &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>

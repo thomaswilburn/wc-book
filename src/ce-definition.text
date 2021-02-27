@@ -1,0 +1,88 @@
+@metadata...
+title:Defining your element
+type:chapter
+summary:Subclassing HTMLElement for fun and profit
+...metadata
+
+Every custom element starts with a JavaScript class that extends `HTMLElement`. Here's a simple example that turns yellow when you click it:
+
+@codeblock(js)...
+class HighlightElement extends HTMLElement {
+  constructor() {
+    super();
+    this.highlight = false;
+    this.addEventListener("click", () => this.toggleHighlight());
+  }
+
+  toggleHighlight() {
+    this.highlight = !this.highlight;
+    if (this.highlight) {
+      this.style.background = "yellow";
+    } else {
+      this.style.background = "";
+    }
+  }
+}
+...codeblock
+
+Our element class has a constructor, where we can set up properties, and a method (`toggleHighlight`) that gets called from an event listener.
+
+Now we'll tell the browser about it. All custom elements must have a dash in their name to keep them from accidentally overlapping with any new built-in elements that browsers might introduce, so we'll call ours "highlight-element" and tell the browser to associate it with this class:
+
+@codeblock(js)...
+window.customElements.define("highlight-element", HighlightElement);
+...codeblock
+
+Once defined, any existing `<highlight-element>` tags in the page will be upgraded, and any new tags will be created from our class. Here's our new tag in action:
+
+@codeblock(html)...
+<highlight-element>Click me!</highlight-element>
+...codeblock
+
+@html...
+<highlight-element>Click me!</highlight-element>
+<script>
+class HighlightElement extends HTMLElement {
+  constructor() {
+    super();
+    this.highlight = false;
+    this.addEventListener("click", () => this.toggleHighlight());
+  }
+
+  toggleHighlight() {
+    this.highlight = !this.highlight;
+    if (this.highlight) {
+      this.style.background = "yellow";
+    } else {
+      this.style.background = "";
+    }
+  }
+}
+window.customElements.define("highlight-element", HighlightElement);
+</script>
+...html
+
+Note the required closing tag. Custom elements cannot be self-closing, the way that `<img>` or `<path />` elements are. You must explicitly close your tags, even if there's nothing in them.
+
+@sidebar...
+
+In Firefox and Chrome, you can extend built-in elements other than the generic `HTMLElement`. Customized built-ins use the `is` attribute to upgrade an element instead of writing the tag name directly. For example, you might extend `HTMLButtonElement` in your class, and then write your upgraded button like so:
+
+@codeblock(html)...
+<button is="custom-button">I'm fancy!</button>
+...codeblock
+
+This has advantages for accessibility and progressive enhancement, since it's still a regular button prior to the upgrade. Unfortunately, so far the Webkit team has refused to implement customization, so in real-world projects you will probably need to stick to `HTMLElement` only.
+
+...sidebar
+
+The class-based definition for custom elements gives us a familiar entryway as JavaScript developers, but there are some rules to keep in mind. Because these elements are meant to behave in the same way as the built-in elements, including being instantiated through `document.createElement()`, custom element constructors have some restrictions:
+
+* Must call `super()` as the first line of the constructor
+* Cannot `return` a value that isn't `this`
+* Cannot get or set any attributes on the element
+* Cannot create any inner HTML or child elements
+
+The browser may choose to automatically test your element to make sure it complies, and reject any clases that break the rules.
+
+Of course, custom elements that couldn't touch their attributes or contents wouldn't be very useful. But if we can't access those parts of the component in the constructor, when can we do it? That's our next topic: the custom element lifecycle methods.

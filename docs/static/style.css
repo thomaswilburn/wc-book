@@ -2,7 +2,7 @@
   --foreground: #333;
   --background: #EEE;
   --primary: #808;
-  --sans-serif: "Noto Sans", sans-serif;
+  --sans-serif: "Lato", sans-serif;
   --mono: "Fira Mono", monospace;
   --serif: "Manuale", serif;
 }
@@ -84,10 +84,17 @@ code pre {
 
 var {
   font-family: var(--mono);
-  border-top: 1px dashed var(--foreground);
-  border-bottom: 1px dashed var(--foreground);
+  /*border-top: 1px dashed var(--foreground);*/
+  /*border-bottom: 1px dashed var(--foreground);*/
   padding: 0 2px;
   font-style: normal;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0,
+    transparent 4px,
+    #0001 4px,
+    #0001 8px
+  );
 }
 
 aside.summary {
@@ -101,9 +108,10 @@ aside.summary {
 }
 
 aside.sidebar {
-  border: 4px dashed #DDD;
+  border: 2px dashed #DDD;
   padding: 16px;
   font-size: 16px;
+  margin: 2em;
 }
 
 /* table of contents */
@@ -154,4 +162,19 @@ aside.sidebar {
 
 .language-undefined pre {
   background: red !important;
+}
+
+table {
+  border-collapse: collapse;
+  margin: auto;
+}
+
+th, td {
+  padding: 4px;
+  border: 1px solid #888;
+}
+
+th {
+  background: #333;
+  color: white;
 }

@@ -47,8 +47,8 @@ for (var slug in data) {
   var index = flattened.indexOf(slug);
   var nextSlug = flattened[index + 1] || "toc";
   var prevSlug = flattened[index - 1] || "toc";
-  var next = data[nextSlug] || { title: nextSlug, filename: "" };
-  var previous = data[prevSlug] || { title: prevSlug, filename: "" };
+  var next = data[nextSlug] || { title: nextSlug, filename: "index.html" };
+  var previous = data[prevSlug] || { title: prevSlug, filename: "index.html" };
   context.nextURL = next.filename;
   context.nextTitle = next.title;
   context.prevURL = previous.filename;

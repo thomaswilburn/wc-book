@@ -1,0 +1,114 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>The custom element lifecycle</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="ce-lifecycle chapter">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="ce-definition.html"> &laquo; Defining your element</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="ce-attributes.html"> Effective attributes &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    Connecting, disconnecting, and reacting
+  </aside>
+  <h1>The custom element lifecycle</h1>
+<p>In the last chapter, we learned that a custom element isn't allowed to manipulate its DOM in the constructor. That work is meant to be deferred to the lifecycle callbacks, which let us know when our element has been attached to the document, which it is removed, and when its attributes are changed. These are just methods that we define in our class, like so:</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">LifecycleExample</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+  }
+
+  <span class="hljs-function"><span class="hljs-title">connectedCallback</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-comment">// called when the element is attached to the document</span>
+    <span class="hljs-comment">// similar to React&#x27;s &quot;componentDidMount&quot;</span>
+  }
+
+  <span class="hljs-function"><span class="hljs-title">disconnectedCallback</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-comment">// called on removal</span>
+    <span class="hljs-comment">// similar to React&#x27;s &quot;componentWillUnmount&quot;</span>
+  }
+
+  <span class="hljs-function"><span class="hljs-title">attributeChangedCallback</span>(<span class="hljs-params">attribute, previousValue, currentValue</span>)</span> {
+    <span class="hljs-comment">// called when attributes are added, removed, or changed</span>
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">observedAttributes</span>() {
+    <span class="hljs-keyword">return</span> [<span class="hljs-string">&quot;src&quot;</span>]
+  }
+
+}</pre></code>
+<p>Let's talk about each of these in turn.</p>
+<h3><var>connectedCallback()</var></h3>
+<p>The <var>connectedCallback</var> method is run whenever your element gets attached to the document, either by the HTML parser or by any JavaScript that appends it to a parent element. This is where you probably want to put most of your actual setup code, but be aware that <var>connectedCallback</var> can be run multiple times if your element is moved around. For any one-time setup, be sure to add a guard property to the element to track execution:</p>
+<code class="language-js"><pre><span class="hljs-function"><span class="hljs-title">connectedCallback</span>(<span class="hljs-params"></span>)</span> {
+  <span class="hljs-keyword">if</span> (!<span class="hljs-built_in">this</span>.initialized) {
+    <span class="hljs-comment">// run expensive first-time setup code</span>
+    <span class="hljs-built_in">this</span>.initialized = <span class="hljs-literal">true</span>;
+  }
+  <span class="hljs-comment">// regular connection code can go here</span>
+}</pre></code>
+<p>In practice, I find that the <var>connectedCallback</var> is not usually a place where I do a lot of heavy work anyway. It's typically where I'll set up observers (of the Intersection or Mutation variety) or sometimes insert a small HTML template. It's also a good place to register for events on <var>document</var> or <var>window</var>. But for a lot of custom elements, this method can be omitted without repercussions.</p>
+<h3><var>disconnectedCallback()</var></h3>
+<p>As the name implies, this method gets called when your element is disconnected from the document. It's a good place to put any cleanup code: removing observers or event listeners that might have been added in <var>connectedCallback()</var>. Don't assume that this will be called once for each <var>connectedCallback()</var>, either before or after.</p>
+<aside class="sidebar">
+<h3><var>adoptedCallback()</var></h3>
+<p>There's another lifecycle method related to connection and disconnection, which is the "adoption" callback. This gets called when your element is moved from the document where it was created to another document or document fragment. I have never in my life used this callback for anything.</p>
+</aside>
+<h3><var>attributeChangedCallback()</var></h3>
+<p><var>attributeChangedCallback()</var> is called whenever an attribute is added, removed, or altered on your element. This can happen in several scenarios:</p>
+<ul>
+<li>During regular HTML parsing, for each attribute in the markup source</li>
+<li>Via <var>setAttribute()</var> calls in scripts</li>
+<li>When a user edits your element attributes from the dev tools</li>
+</ul>
+<p>In response to an attribute change notification, you might trigger a resource download, change something about the element's display, or start an animation &mdash; anything that you might expect from changing the attribute on a regular element.</p>
+<p>Not every attribute will trigger this lifecycle method. In order to get notifications about attribute changes, your element class needs to declare a static <var>observedAttributes</var> getter that returns an array of attribute names. For example, to listen for changes to the "src" and "title" attributes, we'd add this getter to our class:</p>
+<code class="language-js"><pre><span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">observedAttributes</span>() {
+  <span class="hljs-keyword">return</span> [ <span class="hljs-string">&quot;src&quot;</span>, <span class="hljs-string">&quot;title&quot;</span> ]
+}</pre></code>
+<aside class="sidebar">
+<p>A static getter feels like an odd choice, but it's not without reason: by defining these properties on the class instead of the instance (using the <var>static</var> keyword), browsers can optimize observations across tags instead of needing to check individual lists per-element. At the time that custom elements were standardized (and indeed, to this day), static class properties weren't available in all browsers, so a getter provides something that "looks" like a property with a little extra cruft. Once static properties are more common, custom elements should be able to simplify this syntax a bit.</p>
+</aside>
+<p>The actual lifecycle method is called with three arguments: the name of the attribute, its previous value (if any) and its current value (if any). The first argument is guaranteed, but depending on the mutation the other two may be either a string or null:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Attribute was...
+      <th><var>previousValue</var>
+      <th><var>currentValue</var>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Added
+      <td><var>null</var>
+      <td><var>"string"</var>
+    <tr>
+      <td>Changed
+      <td><var>"old string"</var>
+      <td><var>"new string"</var>
+    <tr>
+      <td>Removed
+      <td><var>"string"</var>
+      <td><var>null</var>
+</table>
+<p>One notable limitation of the attribute system is that it only accepts one type: <var>DOMString</var> (which is, for all intents and purposes, a regular JS string). As useful as strings are, sometimes you want something more complex. It's possible to try to cram other values into an attribute, perhaps using JSON encoding, but it's generally a bad idea. A good rule of thumb is that if you need a non-primitive value (i.e, an object or array), use a setter property or a method as the interface instead of an attribute.</p>
+<p>In my opinion, the <var>attributeChangedCallback()</var> is the key to good custom elements. In the next chapter, we'll talk about how to make the most of it.</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="ce-definition.html"> &laquo; Defining your element</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="ce-attributes.html"> Effective attributes &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>

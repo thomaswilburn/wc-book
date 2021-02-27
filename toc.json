@@ -1,12 +1,12 @@
 [
   "intro",
   {
-    "section": "Custom Element Basics",
+    "section": "ce-intro",
     "chapters": [
-      "Defining your element",
-      "The element lifecycle",
-      "Effective attributes",
-      "Using a base class"
+      "ce-definition",
+      "ce-lifecycle",
+      "ce-attributes",
+      "ce-base"
     ]
   },
   {
@@ -23,6 +23,7 @@
       "Attributes, events, and methods",
       "Association and control",
       "Developing expressive DSLs",
+      "Out of sight, out of mind",
       "Framework integration"
     ]
   }

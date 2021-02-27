@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Effective attributes</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="ce-attributes chapter">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="ce-lifecycle.html"> &laquo; The custom element lifecycle</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="ce-base.html"> Using a base class &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    Configuration and communication
+  </aside>
+  <h1>Effective attributes</h1>
+<p>Attributes are what actually make elements interesting. It's the <var>href</var> that gives a link value, the <var>src</var> that makes images pop. That's true for custom elements as well, but the <var>attributeChangedCallback</var> also serves as a central switchboard for configuration and initialization. More than any other lifecycle method, using it effectively will determine how pleasant your element is to develop and to maintain.</p>
+<p>As an example, let's imagine an element that loads SVG from a remote file and injects it into the DOM for styling and manipulation. A naive implementation might use the <var>connectedCallback</var> method to kick off the request:</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">InlineSVG</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+  }
+
+  <span class="hljs-function"><span class="hljs-title">connectedCallback</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">this</span>.loadSVG();
+  }
+
+  <span class="hljs-keyword">async</span> <span class="hljs-function"><span class="hljs-title">loadSVG</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-keyword">var</span> src = <span class="hljs-built_in">this</span>.getAttribute(<span class="hljs-string">&quot;src&quot;</span>);
+    <span class="hljs-keyword">var</span> response = <span class="hljs-keyword">await</span> fetch(src);
+    <span class="hljs-keyword">var</span> svg = <span class="hljs-keyword">await</span> response.text();
+    <span class="hljs-built_in">this</span>.innerHTML = svg;
+  }
+}</pre></code>
+<p>This element will do its job, basically. But it won't react if you change the source file after connection, and every time you move the element it will run <var>connectedCallback()</var> again, triggering a new fetch.</p>
+<p>There's not actually a good reason for any of this to happen when the element is inserted into the DOM anyway. We may have put it there because we associate connection with initialization. But that's not how actual image tags work &mdash; you can create a <var>new Image()</var> and set the source to trigger an image download without ever placing it in the page. Why should our image-ish tag be any different?</p>
+<p>The key insight here is that <var>attributeChangedCallback</var> is not just triggered when something alters an attribute, it is also called for each attribute that exists on an element at creation. So, for the following element in your HTML document:</p>
+<code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">inline-svg</span> <span class="hljs-attr">src</span>=<span class="hljs-string">&quot;test.svg&quot;</span> <span class="hljs-attr">verbose</span>=<span class="hljs-string">&quot;true&quot;</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">inline-svg</span>&gt;</span></pre></code>
+<p>...we would expect the <var>attributeChangedCallback()</var> to be run twice after the constructor finishes, assuming that "src" and "verbose" are both in our <var>observedAttributes()</var> array.</p>
+<p>Here's what I would consider a more effective element definition:</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">InlineSVG</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">observedAttributes</span>() {
+    <span class="hljs-keyword">return</span> [ <span class="hljs-string">&quot;src&quot;</span> ];
+  }
+
+  <span class="hljs-function"><span class="hljs-title">attributeChangedCallback</span>(<span class="hljs-params">attr, was, value</span>)</span> {
+    <span class="hljs-keyword">switch</span> (attr) {
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;src&quot;</span>:
+        <span class="hljs-keyword">if</span> (!value || value == was) <span class="hljs-keyword">return</span>;
+        <span class="hljs-built_in">this</span>.loadSVG(value);
+      <span class="hljs-keyword">break</span>;
+    }
+  }
+
+  <span class="hljs-function"><span class="hljs-title">loadSVG</span>(<span class="hljs-params">src</span>)</span> {
+    <span class="hljs-keyword">var</span> response = <span class="hljs-keyword">await</span> fetch(src);
+    <span class="hljs-keyword">var</span> svg = <span class="hljs-keyword">await</span> response.text();
+    <span class="hljs-built_in">this</span>.innerHTML = svg;
+  }
+}</pre></code>
+<p>By routing "active" code through our attributes, we get the same initial load behavior as we did in the connected callback, but we don't actually have to add it to the DOM first, just like an image tag. Our element will now also fetch updated contents if we alter the source URL at runtime.</p>
+<p>Using a <var>switch</var>/<var>case</var> structure for the callback may feel unconventional, especially given the common advice to avoid this language feature. But this is one of the few cases where it makes perfect sense, especially given that multiple attributes might trigger the same action. For example, imagine an element that uses SVG-like tags to draw to a canvas. Updating any of the attributes on this element should cause it to redraw. Using a <var>switch</var> statement lets us roll those multiple notifications into a single step:</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CanvasCircle</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">observedAttributes</span>() {
+    <span class="hljs-keyword">return</span> [ <span class="hljs-string">&quot;fill&quot;</span>, <span class="hljs-string">&quot;cx&quot;</span>, <span class="hljs-string">&quot;cy&quot;</span>, <span class="hljs-string">&quot;r&quot;</span>, <span class="hljs-string">&quot;title&quot;</span> ]
+  }
+
+  <span class="hljs-function"><span class="hljs-title">attributeChangedCallback</span>(<span class="hljs-params">attr, was, value</span>)</span> {
+    <span class="hljs-keyword">switch</span> (attr) {
+      <span class="hljs-comment">// any drawing attribute should trigger a re-render</span>
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;fill&quot;</span>:
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;cx&quot;</span>:
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;cy&quot;</span>:
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;r&quot;</span>:
+        <span class="hljs-comment">// this.render() will use `this.getAttribute()`</span>
+        <span class="hljs-comment">// to get all the relevant values for drawing</span>
+        <span class="hljs-built_in">this</span>.render();
+      <span class="hljs-keyword">break</span>;
+
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;title&quot;</span>:
+        <span class="hljs-comment">//this attribute is handled separately</span>
+      <span class="hljs-keyword">break</span>;
+    }
+  }
+}</pre></code>
+<p>Working this way, where most of our element's code is actually initiated by setting or updating an attribute, is extremely effective but requires discipline. Here's a few guidelines that I've found helpful:</p>
+<ul>
+<li>Assume that the order of the attributes is unpredictable &mdash; write code that can be run in any order.</li>
+<li>Don't assume that all attributes are set, and use sensible defaults for those that don't exist (yet).</li>
+<li>Whenever possible, setting an attribute to a given value should always have the same result.</li>
+</ul>
+<h2 id="mirroring-attributes">Mirroring attributes</h2>
+<p>One feature that can make your elements much more pleasant to use is to mirror attributes and properties. We often see this in the built-in elements: you can set an image to load from a file by either calling <var>img.src = "test.jpg"</var> or <var>img.setAttribute("src", "test.jpg")</var>. The "src" attribute is mirrored.</p>
+<p>My experience has been that it's much easier to reason about elements that treat their attributes as the source of truth, and use properties to access them. For example, our inline SVG method definition might look like this:</p>
+<code class="language-js"><pre><span class="hljs-function"><span class="hljs-title">attributeChangedCallback</span>(<span class="hljs-params">attr, was, value</span>)</span> {
+  <span class="hljs-keyword">switch</span> (attr) {
+    <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;src&quot;</span>:
+      <span class="hljs-built_in">this</span>.loadSVG(value);
+    <span class="hljs-keyword">break</span>;
+  }
+}
+
+<span class="hljs-keyword">get</span> <span class="hljs-title">src</span>() {
+  <span class="hljs-keyword">return</span> <span class="hljs-built_in">this</span>.getAttribute(<span class="hljs-string">&quot;src&quot;</span>);
+}
+
+<span class="hljs-keyword">set</span> <span class="hljs-title">src</span>(<span class="hljs-params">value</span>) {
+  <span class="hljs-built_in">this</span>.setAttribute(<span class="hljs-string">&quot;src&quot;</span>, value);
+}</pre></code>
+<p>In this case, accessing <var>element.src</var> will still trigger code flow through the <var>attributeChangedCallback()</var>, and the values we assign there will always be inspectable. We can augment the getter if we want, by having it return a <var>URL</var> object or a fully-qualified value, as many element "src" attributes do.</p>
+<p>It's also possible to go the other way &mdash; to treat properties getters/setters as the source of truth, and to make our <var>attributeChangedCallback()</var> a much shorter method that just calls those setters. However, this tends to be more verbose, and if you want the attributes in the DOM to reflect the property values, you'll need to be careful to avoid infinite loops.</p>
+<p>If writing getters and setters for each attribute feels like a lot of work, don't worry: in the next chapter, we're going to automate this and other boilerplate by creating a base class.</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="ce-lifecycle.html"> &laquo; The custom element lifecycle</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="ce-base.html"> Using a base class &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>

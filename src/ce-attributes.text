@@ -1,0 +1,139 @@
+@metadata...
+title:Effective attributes
+type:chapter
+summary:Configuration and communication
+...metadata
+
+Attributes are what actually make elements interesting. It's the `href` that gives a link value, the `src` that makes images pop. That's true for custom elements as well, but the `attributeChangedCallback` also serves as a central switchboard for configuration and initialization. More than any other lifecycle method, using it effectively will determine how pleasant your element is to develop and to maintain.
+
+As an example, let's imagine an element that loads SVG from a remote file and injects it into the DOM for styling and manipulation. A naive implementation might use the `connectedCallback` method to kick off the request:
+
+@codeblock(js)...
+class InlineSVG extends HTMLElement {
+  constructor() {
+    super();
+  }
+
+  connectedCallback() {
+    this.loadSVG();
+  }
+
+  async loadSVG() {
+    var src = this.getAttribute("src");
+    var response = await fetch(src);
+    var svg = await response.text();
+    this.innerHTML = svg;
+  }
+}
+...codeblock
+
+This element will do its job, basically. But it won't react if you change the source file after connection, and every time you move the element it will run `connectedCallback()` again, triggering a new fetch. 
+
+There's not actually a good reason for any of this to happen when the element is inserted into the DOM anyway. We may have put it there because we associate connection with initialization. But that's not how actual image tags work &mdash; you can create a `new Image()` and set the source to trigger an image download without ever placing it in the page. Why should our image-ish tag be any different?
+
+The key insight here is that `attributeChangedCallback` is not just triggered when something alters an attribute, it is also called for each attribute that exists on an element at creation. So, for the following element in your HTML document:
+
+@codeblock(html)...
+<inline-svg src="test.svg" verbose="true"></inline-svg>
+...codeblock
+
+...we would expect the `attributeChangedCallback()` to be run twice after the constructor finishes, assuming that "src" and "verbose" are both in our `observedAttributes()` array.
+
+Here's what I would consider a more effective element definition:
+
+@codeblock(js)...
+class InlineSVG extends HTMLElement {
+  constructor() {
+    super();
+  }
+
+  static get observedAttributes() {
+    return [ "src" ];
+  }
+
+  attributeChangedCallback(attr, was, value) {
+    switch (attr) {
+      case "src":
+        if (!value || value == was) return;
+        this.loadSVG(value);
+      break;
+    }
+  }
+
+  loadSVG(src) {
+    var response = await fetch(src);
+    var svg = await response.text();
+    this.innerHTML = svg;
+  }
+}
+...codeblock
+
+By routing "active" code through our attributes, we get the same initial load behavior as we did in the connected callback, but we don't actually have to add it to the DOM first, just like an image tag. Our element will now also fetch updated contents if we alter the source URL at runtime. 
+
+Using a `switch`/`case` structure for the callback may feel unconventional, especially given the common advice to avoid this language feature. But this is one of the few cases where it makes perfect sense, especially given that multiple attributes might trigger the same action. For example, imagine an element that uses SVG-like tags to draw to a canvas. Updating any of the attributes on this element should cause it to redraw. Using a `switch` statement lets us roll those multiple notifications into a single step:
+
+@codeblock(js)...
+class CanvasCircle extends HTMLElement {
+  constructor() {
+    super();
+  }
+
+  static get observedAttributes() {
+    return [ "fill", "cx", "cy", "r", "title" ]
+  }
+
+  attributeChangedCallback(attr, was, value) {
+    switch (attr) {
+      // any drawing attribute should trigger a re-render
+      case "fill":
+      case "cx":
+      case "cy":
+      case "r":
+        // this.render() will use `this.getAttribute()`
+        // to get all the relevant values for drawing
+        this.render();
+      break;
+
+      case "title":
+        //this attribute is handled separately
+      break;
+    }
+  }
+}
+...codeblock
+
+Working this way, where most of our element's code is actually initiated by setting or updating an attribute, is extremely effective but requires discipline. Here's a few guidelines that I've found helpful:
+
+* Assume that the order of the attributes is unpredictable &mdash; write code that can be run in any order.
+* Don't assume that all attributes are set, and use sensible defaults for those that don't exist (yet).
+* Whenever possible, setting an attribute to a given value should always have the same result.
+
+@subhead Mirroring attributes
+
+One feature that can make your elements much more pleasant to use is to mirror attributes and properties. We often see this in the built-in elements: you can set an image to load from a file by either calling `img.src = "test.jpg"` or `img.setAttribute("src", "test.jpg")`. The "src" attribute is mirrored.
+
+My experience has been that it's much easier to reason about elements that treat their attributes as the source of truth, and use properties to access them. For example, our inline SVG method definition might look like this:
+
+@codeblock(js)...
+attributeChangedCallback(attr, was, value) {
+  switch (attr) {
+    case "src":
+      this.loadSVG(value);
+    break;
+  }
+}
+
+get src() {
+  return this.getAttribute("src");
+}
+
+set src(value) {
+  this.setAttribute("src", value);
+}
+...codeblock
+
+In this case, accessing `element.src` will still trigger code flow through the `attributeChangedCallback()`, and the values we assign there will always be inspectable. We can augment the getter if we want, by having it return a `URL` object or a fully-qualified value, as many element "src" attributes do.
+
+It's also possible to go the other way &mdash; to treat properties getters/setters as the source of truth, and to make our `attributeChangedCallback()` a much shorter method that just calls those setters. However, this tends to be more verbose, and if you want the attributes in the DOM to reflect the property values, you'll need to be careful to avoid infinite loops.
+
+If writing getters and setters for each attribute feels like a lot of work, don't worry: in the next chapter, we're going to automate this and other boilerplate by creating a base class.

@@ -1,0 +1,157 @@
+@metadata...
+title:Using a base class
+type:chapter
+summary:Eliminating element boilerplate
+...metadata
+
+In the chapter on element definition, I noted that in almost all cases, our elements must inherit from `HTMLElement`. However, there's no rule that we can't create an intermediate class that smooths over some of the rough edges of the custom element API. Indeed, this is essentially all that libraries like <a href="https://lit-element.polymer-project.org/">LitElement</a> do! 
+
+A good base class doesn't have to be very long, and it will make a substantial difference in the developer experience. Here's a starter class that handles the material we've covered so far &mdash; we'll continue adding to this base class throughout the book.
+
+@codeblock(js)...
+class CustomElement extends HTMLElement {
+  constructor() {
+    super();
+    var def = new.target;
+
+    if (def.boundMethods) {
+      for (var f of def.boundMethods) {
+        this[f] = this[f].bind(this);
+      }
+    }
+
+    if (def.mirroredProps) {
+      def.mirroredProps.forEach(f => {
+        Object.defineProperty(this, f, {
+          get() {
+            return this.getAttribute(f);
+          },
+
+          set(v) {
+            this.setAttribute(f, v);
+          }
+        })
+      });
+    }
+  }
+
+  static define(tag) {
+    try {
+      window.customElements.define(tag, this);
+    } catch (err) {
+      console.log(`Unable to (re)define ${tag}`);
+    }
+  }
+
+}
+...codeblock
+
+To use this class, just use it as the target of `extends` when defining your custom elements:
+
+@codeblock(js)...
+class ExampleElement extends CustomElement { ...
+...codeblock
+
+@subhead What's going on in there?
+
+Most of the work of our base class takes place in the constructor. First, we call `super()`, as we're required to do by the spec. Next, we use `new.target` to get a reference to the actual class being constructed &mdash; the one for our element itself, not `CustomElement` or `HTMLElement`.
+
+With the class definition in hand, we can start eliminating boilerplate. The first thing we do is look at the class to see if it has a `boundMethods` property (or, more accurately, a getter that returns an array). All of those methods will be bound to this particular instance, so that their `this` value will always be the element, which makes it easier to set them as event listeners or callbacks. Essentially, we're going from this:
+
+@codeblock(js)...
+class ExampleElement extends HTMLElement {
+  constructor() {
+    super();
+
+    // bind event listener methods
+    // this is common in React codebases
+    this.onClick = this.onClick.bind(this);
+    this.onKeyDown = this.onKeyDown.bind(this);
+    this.onBlur = this.onBlur.bind(this);
+
+    this.addEventListener("click", this.onClick);
+    this.addEventListener("keydown", this.onKeyDown);
+    this.addEventListener("blur", this.onBlur);
+  }
+}
+...codeblock
+
+... to this:
+
+@codeblock(js)...
+class ExampleElement extends CustomElement {
+  constructor() {
+    super();
+
+    this.addEventListener("click", this.onClick);
+    this.addEventListener("keydown", this.onKeyDown);
+    this.addEventListener("blur", this.onBlur);
+  }
+
+  static get boundMethods() {
+    return [ "onClick", "onKeyDown", "onBlur" ];
+  }
+}
+...codeblock
+
+It's not a huge change, but it's a little less verbose, and having a single place to do binding &mdash; rather than doing it on demand or scattered through the code &mdash; is helpful when collaborating on a team. Using the same pattern as `observedAttributes` means that these habits reinforce each other.
+
+Next, our constructor does something similar for mirrored properties:
+
+@codeblock(js)...
+if (def.mirroredProps) {
+  def.mirroredProps.forEach(f => {
+    Object.defineProperty(this, f, {
+      get() {
+        return this.getAttribute(f);
+      },
+
+      set(v) {
+        this.setAttribute(f, v);
+      }
+    })
+  });
+}
+...codeblock
+
+If our class definition has a `mirroredProps` getter, similar to `boundMethods` or `observedAttributes`, our class runs through that array and creates a getter/setter for each one. For example, we might define a class like this:
+
+@codeblock(js)...
+class ExampleElement extends CustomElement {
+  constructor() {
+    super();
+  }
+
+  static get observedAttributes() {
+    return [ "src", "width", "height" ];
+  }
+
+  static get mirroredProps() {
+    return [ "src", "width", "height" ];
+  }
+}
+...codeblock
+
+Our ExampleElement will get `attributeChangedCallback()` notifications for "src", "width", and "height" attributes, but it will also automatically have `src`, `width`, and `height` properties on the element itself that affect those attributes. This means you can call `setAttribute()` a lot less in your code, and your element will behave more like the built-ins that people are used to.
+
+You could set this code to work from the actual `observedAttributes` value instead of `mirroredProps`, since we almost always want "live" attributes to be mirrored. I think there's value in having these be separate concepts, even if it does mean a little duplications.
+
+Finally, there's a fun little static method outside of the constructor on our `CustomElement` class:
+
+@codeblock(js)...
+static define(tag) {
+  try {
+    window.customElements.define(tag, this);
+  } catch (err) {
+    console.log(`Unable to (re)define ${tag}`);
+  }
+}
+...codeblock
+
+This wrapper around the custom elements registry makes it a little easier to register tags, since we can just do it from the class:
+
+@codeblock(js)...
+ExampleElement.define("example-element");
+...codeblock
+
+It also adds a little safety to the registration process. Calling `customElements.define()` with the same tag name twice will normally throw an error, which in bundled applications probably doesn't matter very much. However, if you're providing your elements as an embed code for CMS or document use, people may be including your script multiple times on a page, which would mean your element definition may be run repeatedly for no good reason. In this case, by catching the error, we can avoid a crash when the element has already been defined.

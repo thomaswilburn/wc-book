@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Defining your element</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="ce-definition chapter">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="ce-intro.html"> &laquo; Custom element fundamentals</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="ce-lifecycle.html"> The custom element lifecycle &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    Subclassing HTMLElement for fun and profit
+  </aside>
+  <h1>Defining your element</h1>
+<p>Every custom element starts with a JavaScript class that extends <var>HTMLElement</var>. Here's a simple example that turns yellow when you click it:</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HighlightElement</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+    <span class="hljs-built_in">this</span>.highlight = <span class="hljs-literal">false</span>;
+    <span class="hljs-built_in">this</span>.addEventListener(<span class="hljs-string">&quot;click&quot;</span>, <span class="hljs-function">() =&gt;</span> <span class="hljs-built_in">this</span>.toggleHighlight());
+  }
+
+  <span class="hljs-function"><span class="hljs-title">toggleHighlight</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">this</span>.highlight = !<span class="hljs-built_in">this</span>.highlight;
+    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.highlight) {
+      <span class="hljs-built_in">this</span>.style.background = <span class="hljs-string">&quot;yellow&quot;</span>;
+    } <span class="hljs-keyword">else</span> {
+      <span class="hljs-built_in">this</span>.style.background = <span class="hljs-string">&quot;&quot;</span>;
+    }
+  }
+}</pre></code>
+<p>Our element class has a constructor, where we can set up properties, and a method (<var>toggleHighlight</var>) that gets called from an event listener.</p>
+<p>Now we'll tell the browser about it. All custom elements must have a dash in their name to keep them from accidentally overlapping with any new built-in elements that browsers might introduce, so we'll call ours "highlight-element" and tell the browser to associate it with this class:</p>
+<code class="language-js"><pre><span class="hljs-built_in">window</span>.customElements.define(<span class="hljs-string">&quot;highlight-element&quot;</span>, HighlightElement);</pre></code>
+<p>Once defined, any existing <var>&lt;highlight-element&gt;</var> tags in the page will be upgraded, and any new tags will be created from our class. Here's our new tag in action:</p>
+<code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">highlight-element</span>&gt;</span>Click me!<span class="hljs-tag">&lt;/<span class="hljs-name">highlight-element</span>&gt;</span></pre></code>
+<highlight-element>Click me!</highlight-element>
+<script>
+class HighlightElement extends HTMLElement {
+  constructor() {
+    super();
+    this.highlight = false;
+    this.addEventListener("click", () => this.toggleHighlight());
+  }
+
+  toggleHighlight() {
+    this.highlight = !this.highlight;
+    if (this.highlight) {
+      this.style.background = "yellow";
+    } else {
+      this.style.background = "";
+    }
+  }
+}
+window.customElements.define("highlight-element", HighlightElement);
+</script>
+<p>Note the required closing tag. Custom elements cannot be self-closing, the way that <var>&lt;img&gt;</var> or <var>&lt;path /&gt;</var> elements are. You must explicitly close your tags, even if there's nothing in them.</p>
+<aside class="sidebar">
+<p>In Firefox and Chrome, you can extend built-in elements other than the generic <var>HTMLElement</var>. Customized built-ins use the <var>is</var> attribute to upgrade an element instead of writing the tag name directly. For example, you might extend <var>HTMLButtonElement</var> in your class, and then write your upgraded button like so:</p>
+<code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">button</span> <span class="hljs-attr">is</span>=<span class="hljs-string">&quot;custom-button&quot;</span>&gt;</span>I&#x27;m fancy!<span class="hljs-tag">&lt;/<span class="hljs-name">button</span>&gt;</span></pre></code>
+<p>This has advantages for accessibility and progressive enhancement, since it's still a regular button prior to the upgrade. Unfortunately, so far the Webkit team has refused to implement customization, so in real-world projects you will probably need to stick to <var>HTMLElement</var> only.</p>
+</aside>
+<p>The class-based definition for custom elements gives us a familiar entryway as JavaScript developers, but there are some rules to keep in mind. Because these elements are meant to behave in the same way as the built-in elements, including being instantiated through <var>document.createElement()</var>, custom element constructors have some restrictions:</p>
+<ul>
+<li>Must call <var>super()</var> as the first line of the constructor</li>
+<li>Cannot <var>return</var> a value that isn't <var>this</var></li>
+<li>Cannot get or set any attributes on the element</li>
+<li>Cannot create any inner HTML or child elements</li>
+</ul>
+<p>The browser may choose to automatically test your element to make sure it complies, and reject any clases that break the rules.</p>
+<p>Of course, custom elements that couldn't touch their attributes or contents wouldn't be very useful. But if we can't access those parts of the component in the constructor, when can we do it? That's our next topic: the custom element lifecycle methods.</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="ce-intro.html"> &laquo; Custom element fundamentals</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="ce-lifecycle.html"> The custom element lifecycle &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>
