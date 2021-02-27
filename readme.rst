@@ -6,7 +6,7 @@ A guide to building effective and maintainable web components.
 Building the book
 -----------------
 
-There aren't any dependencies, and hardly any infrastructure to speak of. Source files are in ``src/``, and output goes in ``docs/`` so that GitHub Pages can see it without maintaining a separate branch. Use ``npm run build`` to rebuild after making changes. There's a ``docs/static`` folder that's not touched, where you can keep images and stylesheets.
+There aren't any dependencies besides the highlighter code, and hardly any infrastructure to speak of. Source files are in ``src/``, and output goes in ``docs/`` so that GitHub Pages can see it without maintaining a separate branch. Use ``npm run build`` to rebuild after making changes. There's a ``docs/static`` folder that's not touched, where you can keep images and stylesheets.
 
 I recommend running a server in a second terminal or a tmux session from the output folder, so that you don't have to worry about the security sandbox, but pretty much everything should work from a file:// URL anyway.
 
