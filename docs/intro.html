@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Introduction</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Noto+Sans|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="intro intermission">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="index.html"> &laquo; Table of Contents</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href=""> Custom Element Basics &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    
+  </aside>
+  <h1>Introduction</h1>
+<p>I first started using custom elements in 2013, working at ArenaNet in Bellevue, WA. A member of the team was working on the in-game commerce UI for <i>Guild Wars 2</i>, and when we updated to a newer version of Chromium, he took advantage of it to create new tags that integrated into the hooks our engine programmers had added. For example, an inventory icon was automatically registered for native UI popups from the game engine, without needing to initialize the view or track its location.</p>
+<p>This was pretty basic stuff, but I had always thought about creating new tags as something that only browser developers could do. The new elements in HTML5, like <var>&lt;article&gt;</var> or <var>&lt;nav&gt;</var>, were still fresh in my memory. The idea that we could just make our own tags, with complex behavior and complete control, felt like magic.</p>
+<p>A year or two later, at The Seattle Times, I needed a way to insert responsive iframes into a WordPress page for my team's interactive graphics. This is a common problem, but I didn't like the solutions other newsrooms had developed: they felt clunky, requiring a loader script or a few lines of code to initialize each frame. The <a href="https://github.com/seattletimes/responsive-frame">custom element I built</a> didn't have these issues &mdash; it registered itself automatically, and could clean up after itself if it was removed dynamically. Wrapped in a WordPress shortcode, our IT department ended up using these all over the site.</p>
+<p>Emboldened by this success, I experimented with other tags, some of which were flops (a tag that created a simple line chart from a CSV) and some of which were extremely successful (the <a href="https://github.com/seattletimes/component-leaflet-map">Leaflet map tag</a> ended up being core to a huge number of stories). I also built some side projects in Web Components, to see how much I could push them into a more traditional framework role (the answer: <a href="https://github.com/thomaswilburn/radio-v2">pretty close!</a>).</p>
+<p>After joining NPR in 2018, I kept finding places where this technology was a natural fit for the problems I was solving. Our 2020 primary coverage not only used them for rich content in our liveblogs, but <a href="https://blog.apps.npr.org/2020/03/16/custom-elements-primaries.html">they were the fundamental architecture for our election results</a>. Although we didn't eliminate the legacy Pym.js embeds that the team had created years prior, a backwards-compatible <a href="https://github.com/nprapps/sidechain">Sidechain</a> element became a replacement in special projects. Even within our dailygraphics, custom elements became a quick and easy way to offer some standard UI widgets without having to load a new library beyond the D3 we were already using.</p>
+<p>Web Components have become my secret weapon. At this point, relatively few people have as much experience as I do with this technology. I've seen it grow from a shaky prototype, to a contentious Chrome-only "V0" release, to a widely-deployed standard. And over that time, it's become an indispensable part of my toolkit, whether I'm working on a complex application using a framework like React or Vue, rich documents, or interactive visuals. This book is an attempt to distill those years of experience, so that you too can see how expressive, elegant, and <i>fun</i> Web Compomnents can be.</p>
+<p>Thomas Wilburn</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="index.html"> &laquo; Table of Contents</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href=""> Custom Element Basics &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>

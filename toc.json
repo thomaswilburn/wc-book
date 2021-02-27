@@ -1,0 +1,29 @@
+[
+  "intro",
+  {
+    "section": "Custom Element Basics",
+    "chapters": [
+      "Defining your element",
+      "The element lifecycle",
+      "Effective attributes",
+      "Using a base class"
+    ]
+  },
+  {
+    "section": "Structuring Components",
+    "chapters": [
+      "Shadow DOM",
+      "Slots",
+      "CSS and Theming"
+    ]
+  },
+  {
+    "section": "Platform Design",
+    "chapters": [
+      "Attributes, events, and methods",
+      "Association and control",
+      "Developing expressive DSLs",
+      "Framework integration"
+    ]
+  }
+]
