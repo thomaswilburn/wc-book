@@ -89,9 +89,16 @@ And the component itself:
             background: white;
             color: black;
           }
+
+          .panel-container {
+            border: 1px solid black;
+            padding: 8px;
+          }
         </style>
         <nav class="tab-row"></nav>
-        <slot></slot>
+        <div class="panel-container">
+          <slot></slot>
+        </div>
       `;
       this.tabs = this.shadowRoot.querySelector(".tab-row");
       this.panelSlot = this.shadowRoot.querySelector("slot");
@@ -171,9 +178,16 @@ class TabCollection extends HTMLElement {
           background: white;
           color: black;
         }
+
+        .panel-container {
+          border: 1px solid black;
+          padding: 8px;
+        }
       </style>
       <nav class="tab-row"></nav>
-      <slot></slot>
+      <div class="panel-container">
+        <slot></slot>
+      </div>
     `;
     this.tabs = this.shadowRoot.querySelector(".tab-row");
     this.panelSlot = this.shadowRoot.querySelector("slot");

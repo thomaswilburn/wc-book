@@ -84,9 +84,16 @@ customElements.define("slot-example", SlotExample);
             background: white;
             color: black;
           }
+
+          .panel-container {
+            border: 1px solid black;
+            padding: 8px;
+          }
         </style>
         <nav class="tab-row"></nav>
-        <slot></slot>
+        <div class="panel-container">
+          <slot></slot>
+        </div>
       `;
       this.tabs = this.shadowRoot.querySelector(".tab-row");
       this.panelSlot = this.shadowRoot.querySelector("slot");
@@ -161,9 +168,16 @@ customElements.define("slot-example", SlotExample);
           background: white;
           color: black;
         }
+
+        .panel-container {
+          border: 1px solid black;
+          padding: 8px;
+        }
       &lt;/style&gt;
       &lt;nav class=&quot;tab-row&quot;&gt;&lt;/nav&gt;
-      &lt;slot&gt;&lt;/slot&gt;
+      &lt;div class=&quot;panel-container&quot;&gt;
+        &lt;slot&gt;&lt;/slot&gt;
+      &lt;/div&gt;
     `</span>;
     <span class="hljs-built_in">this</span>.tabs = <span class="hljs-built_in">this</span>.shadowRoot.querySelector(<span class="hljs-string">&quot;.tab-row&quot;</span>);
     <span class="hljs-built_in">this</span>.panelSlot = <span class="hljs-built_in">this</span>.shadowRoot.querySelector(<span class="hljs-string">&quot;slot&quot;</span>);
