@@ -1,0 +1,125 @@
+@metadata...
+title:Shadow DOM
+type:chapter
+summary:Who knows what lurks in the depths of the DOM?
+...metadata
+
+Before web components, UI libraries on the web were a leaky abstraction. They required users to include a stylesheet, carefully engineered so that it wouldn't interfere with other items on the page. To make sure their own styles wouldn't be affected by the page, these stylesheets had to ship an exhaustive and bulky list of extra rules, just in case. A UI element from jQuery or Bootstrap also touched the DOM in unpredictable ways &mdash; there was no easy way to exclude the internal markup of its widgets from your own document queries, or be sure that it wouldn't mutate other parts of the page to achieve its goals.
+
+Built-in elements don't have this problem, sometimes notoriously so: it's almost impossible, for example, to style a select box no matter how much you (or your designer) want to. That's because they've historically had a capability that wasn't exposed to independent developers: they could create chunks of HTML and CSS that were isolated from scripts and styles, effectively invisible to developers but not to users. When it was codified into Web Components, this ability got a name: the shadow DOM.
+
+A shadow DOM is a document fragment that's attached to a host element. It becomes the visible contents of that element, and it uses the same DOM APIs as any other document. But special rules govern the boundary between shadow and what we can now think of as the "light" DOM.
+
+* JavaScript methods like `querySelectorAll()` can't see into the shadow fragment without explicitly targeting the host element.
+* Styles defined in the light DOM don't usually affect the shadow &mdash; it's a clean slate for CSS.
+* Inherited styles, like `font-family` or `color`, are the exception: these will travel across the boundary, unless you manually unset them.
+* Style rules defined inside the shadow cannot affect the outside document at all.
+* Events won't automatically travel outside the shadow boundary.
+
+These are powerful tools, but we'll see later how they also create complications.
+
+@subhead Attaching a shadow
+
+Any element can technically host a shadow DOM fragment, but it's most commonly used for custom elements. You may remember that custom elements are not allowed to alter their contents or attributes in the constructor. Shadow DOM is an exception to this rule. As a result, custom elements will often set up their shadow DOM fragments on creation:
+
+@codeblock(js)...
+class ExampleElement extends HTMLElement {
+  constructor() {
+    super();
+    var shadow = this.attachShadow({ mode: "open" });
+    // you can also access the shadow from this.shadowRoot
+  }
+}
+...codeblock
+
+@sidebar...
+
+`attachShadow()` has to be called with a mode, which can be either "open" or "closed". If it's open, the element will have a `shadowRoot` property that can be used to get into it from ouside. Most experts agree that, given the infamously leaky nature of JavaScript, there's not really any security benefit of a closed root, and it makes debugging a lot harder. Default to open, if you can.
+
+...sidebar
+
+Keep in mind, the shadow root effectively turns its host into a replaced element, like an `<img>` or `<audio>` tag. You can place child elements in the light DOM of the host, but they won't show up on the page automatically.
+
+@subhead A sample shadow
+
+Let's imagine we're creating a media player for a podcast page as a component. For users of the media player, the element will look something like this:
+
+@codeblock(html)...
+<podcast-player src="episode.mp3"><podcast-player>
+...codeblock
+
+Here's the actual implementation, and a demo that plays an episode of NPR's <i>Code Switch</i>:
+
+@includeCode(html) snippets/podcast-player.html
+@include snippets/podcast-player.html
+
+Much of this code should look familiar: we have a method that triggers playback from and event listener, and an `attributeChangedCallback` that updates our player when the "src" attribute is set.
+
+In the shadow DOM for our element, we've added three tags through a simple HTML block. First, there's a style tag, which applies visual styling to our button. Thanks to the isolation of the shadow DOM, our selectors can be extremely simple, targeting elements only by tag name. Buttons outside the element won't be affected, since the styles can't exit the shadow DOM.
+
+Style tags are a common way to add CSS to a shadow fragment. It's also possible to include a stylesheet with a `<link rel="stylesheet">` tag, but it'll be downloaded and displayed asynchronously, creaing a flash of unstyled content. Most of the time, an inline stylesheet is an easier and simpler solution. Since it's created from JS, and the styles don't leak out into the wider document, it doesn't really create an issue for performance or page weight.
+
+We also have an audio tag and a button. In order to work with these for playback and event listeners, we need to get a reference to them somehow &mdash; calling `querySelector()` on the shadow root does the trick. We could also have constructed these elements through `document.createElement()` and appended them manually to the shadow root, retaining references to them for later, but that tends to get messy as the markup gets more complex.
+
+If you query for this element in the browser console, none of this will be visible to you. Users of our `<podcast-player>` can style buttons or run any DOM queries they might choose, and our code won't interfere or be disturbed.
+
+@subhead Automatic shadow templating
+
+Originally, Web Components included another API, HTML Imports, that helped developers package their components into a self-sufficient file. The imported HTML would include the script for their behavior, a `<template>` with their shadow markup, and any other dependencies they might need. Unfortunately, HTML Imports never got broad browser support, which also left `<template>` in a much less useful place.
+
+In the end, I don't know that this matters very much. New syntax features like template string literals make it a lot easier to write blocks of multiline HTML in JavaScript itself, instead of cloning it from a node in the page. We can augment our base class to automatically fill the element's shadow DOM:
+
+@codeblock(js)...
+
+class CustomElement extends HTMLElement {
+  constructor() {
+    super();
+
+    this.elements = {};
+    this.attachShadow({ mode: "open" });
+
+    if (def.template) {
+      this.shadowRoot.innerHTML = def.template;
+      this.shadowRoot.querySelectorAll(`[as]`).forEach(el => {
+        var name = el.getAttribute("as");
+        this.elements[name] = el;
+      });
+    }
+
+    /* ... rest of constructor */
+  }
+}
+
+...codeblock
+
+This code looks for a static `template` property on the class definition. If it's there, it splats that string into the shadow root. Any elements in the template with an "as" attribute are made available on the `elements` property for easy access. This isn't a sophisticated templating system, but it handles a lot of use cases without a lot of code, especially with the other convenience features of our base class. For example, a simple button element:
+
+@codeblock(js)...
+  
+class ButtonExample extends CustomElement {
+  constructor() {
+    super();
+
+    this.elements.alertButton.addEventListener("click", this.onClick);
+  }
+
+  static get boundMethods() {
+    return ["onClick"];
+  }
+
+  onClick() {
+    window.alert("Clicked!");
+  }
+
+  static get template() {
+    return `
+      <button as="alertButton">Click me</button>
+    `
+  }
+}
+
+...codeblock
+
+With modern bundling tools, like Webpack or Rollup, you can write that template as a separate HTML file and import it. From there, you can use the lookup on `this.elements` to mount a more comprehensive templating solution, like <a href="https://lit-html.polymer-project.org/">lit-html</a>, onto sections of the shadow if you need to. 
+
+That said, my experience is that a large and complex shadow DOM is usually something to be avoided. Every shadow boundary creates additional complexity for managing focus, event listeners, DOM manipulation, and even inspecting components with the dev tools. The ideal is to keep the shadow to a minimum &mdash; use it for UI controls and decoration &mdash; but leave as much of the page in the light as possible. In the next chapter, we'll see how to make that a reality.

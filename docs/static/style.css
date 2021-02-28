@@ -84,17 +84,9 @@ code pre {
 
 var {
   font-family: var(--mono);
-  /*border-top: 1px dashed var(--foreground);*/
-  /*border-bottom: 1px dashed var(--foreground);*/
   padding: 0 2px;
   font-style: normal;
-  background-image: repeating-linear-gradient(
-    -45deg,
-    transparent 0,
-    transparent 4px,
-    #0001 4px,
-    #0001 8px
-  );
+  background: #F8F8F8;
 }
 
 aside.summary {
@@ -112,6 +104,13 @@ aside.sidebar {
   padding: 16px;
   font-size: 16px;
   margin: 2em;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 6px,
+    #FCFCFC 6px,
+    #FCFCFC 12px
+  );
 }
 
 /* table of contents */

@@ -1,0 +1,61 @@
+<script>
+class PodcastPlayer extends HTMLElement {
+  constructor() {
+    super();
+    var shadow = this.attachShadow({ mode: "open" });
+    shadow.innerHTML = `
+      <style>
+        button {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          width: 75px;
+          height: 75px;
+          border-radius: 100%;
+          border: none;
+          background: #808;
+          color: white;
+          text-transform: uppercase;
+          cursor: pointer;
+        }
+      </style>
+      <audio></audio>
+      <button>Play</button>
+    `;
+    this.audio = shadow.querySelector("audio");
+
+    this.playButton = shadow.querySelector("button");
+    this.playButton.addEventListener("click", () => this.onClickPlay());
+  }
+
+  static get observedAttributes() {
+    return [ "src" ];
+  }
+
+  attributeChangedCallback(attr, was, value) {
+    switch (attr) {
+      case "src":
+        this.audio.src = value;
+        this.audio.currentTime = 0;
+        this.playButton.innerHTML = "Play";
+      break;
+    }
+  }
+
+  onClickPlay() {
+    if (this.audio.paused) {
+      this.audio.play();
+      this.playButton.innerHTML = "Playing";
+    } else {
+      this.audio.pause();
+      this.playButton.innerHTML = "Play";
+    }
+  }
+}
+
+customElements.define("podcast-player", PodcastPlayer);
+</script>
+
+<podcast-player 
+  src="https://play.podtrac.com/npr-510312/edge1.pod.npr.org/anon.npr-mp3/npr/codeswitch/2020/12/20201222_codeswitch_storylab_holiday_version_ljd_8pm.mp3"
+></podcast-player>

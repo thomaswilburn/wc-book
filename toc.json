@@ -10,10 +10,10 @@
     ]
   },
   {
-    "section": "Structuring Components",
+    "section": "sd-intro",
     "chapters": [
-      "Shadow DOM",
-      "Slots",
+      "sd-shadow",
+      "sd-slots",
       "CSS and Theming"
     ]
   },

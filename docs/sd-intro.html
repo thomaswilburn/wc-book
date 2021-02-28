@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Structuring components</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="sd-intro section-intro">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="ce-base.html"> &laquo; Using a base class</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="sd-shadow.html"> Shadow DOM &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    
+  </aside>
+  <h1>Structuring components</h1>
+<p>The <a href="https://infrequently.org/2012/04/bedrock/">bedrock motivation</a>, so to speak, for Web Components has been the idea of an extensible web &mdash; one where we have APIs that "explain" how the browser does something, and let us do the same thing. That doesn't sound like much, but think about how much effort, from jQuery forward, went into something as simple as "a select box that looks good." And typically those implementations are framework specific &mdash; your theme-able select box in React can't be easily re-used in Vue, and vice versa.</p>
+<p>Custom elements give us a standard framework for "how do I build a UI widget?" But they're not a complete story. Built-in UI widgets have user-agent styles and isolation from the styles on the page &mdash; your CSS doesn't affect the look of an input slider. They also have UI elements that exist to the user but are opaque to JavaScript, like the controls of an audio tag. And in some cases, like <var>&lt;canvas&gt;</var> or <var>&lt;img&gt;</var>, they actually replace their contents entirely with something else.</p>
+<p>This set of chapters is about how we answer those questions. It's also about how we start to think about web components, not just as individual tags, but as a part of the bigger document.</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="ce-base.html"> &laquo; Using a base class</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="sd-shadow.html"> Shadow DOM &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>

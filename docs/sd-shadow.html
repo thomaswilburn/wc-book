@@ -1,0 +1,233 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Shadow DOM</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="sd-shadow chapter">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="sd-intro.html"> &laquo; Structuring components</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="sd-slots.html"> Slots &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    Who knows what lurks in the depths of the DOM?
+  </aside>
+  <h1>Shadow DOM</h1>
+<p>Before web components, UI libraries on the web were a leaky abstraction. They required users to include a stylesheet, carefully engineered so that it wouldn't interfere with other items on the page. To make sure their own styles wouldn't be affected by the page, these stylesheets had to ship an exhaustive and bulky list of extra rules, just in case. A UI element from jQuery or Bootstrap also touched the DOM in unpredictable ways &mdash; there was no easy way to exclude the internal markup of its widgets from your own document queries, or be sure that it wouldn't mutate other parts of the page to achieve its goals.</p>
+<p>Built-in elements don't have this problem, sometimes notoriously so: it's almost impossible, for example, to style a select box no matter how much you (or your designer) want to. That's because they've historically had a capability that wasn't exposed to independent developers: they could create chunks of HTML and CSS that were isolated from scripts and styles, effectively invisible to developers but not to users. When it was codified into Web Components, this ability got a name: the shadow DOM.</p>
+<p>A shadow DOM is a document fragment that's attached to a host element. It becomes the visible contents of that element, and it uses the same DOM APIs as any other document. But special rules govern the boundary between shadow and what we can now think of as the "light" DOM.</p>
+<ul>
+<li>JavaScript methods like <var>querySelectorAll()</var> can't see into the shadow fragment without explicitly targeting the host element.</li>
+<li>Styles defined in the light DOM don't usually affect the shadow &mdash; it's a clean slate for CSS.</li>
+<li>Inherited styles, like <var>font-family</var> or <var>color</var>, are the exception: these will travel across the boundary, unless you manually unset them.</li>
+<li>Style rules defined inside the shadow cannot affect the outside document at all.</li>
+<li>Events won't automatically travel outside the shadow boundary.</li>
+</ul>
+<p>These are powerful tools, but we'll see later how they also create complications.</p>
+<h2 id="attaching-a-shadow">Attaching a shadow</h2>
+<p>Any element can technically host a shadow DOM fragment, but it's most commonly used for custom elements. You may remember that custom elements are not allowed to alter their contents or attributes in the constructor. Shadow DOM is an exception to this rule. As a result, custom elements will often set up their shadow DOM fragments on creation:</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExampleElement</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+    <span class="hljs-keyword">var</span> shadow = <span class="hljs-built_in">this</span>.attachShadow({ <span class="hljs-attr">mode</span>: <span class="hljs-string">&quot;open&quot;</span> });
+    <span class="hljs-comment">// you can also access the shadow from this.shadowRoot</span>
+  }
+}</pre></code>
+<aside class="sidebar">
+<p><var>attachShadow()</var> has to be called with a mode, which can be either "open" or "closed". If it's open, the element will have a <var>shadowRoot</var> property that can be used to get into it from ouside. Most experts agree that, given the infamously leaky nature of JavaScript, there's not really any security benefit of a closed root, and it makes debugging a lot harder. Default to open, if you can.</p>
+</aside>
+<p>Keep in mind, the shadow root effectively turns its host into a replaced element, like an <var>&lt;img&gt;</var> or <var>&lt;audio&gt;</var> tag. You can place child elements in the light DOM of the host, but they won't show up on the page automatically.</p>
+<h2 id="a-sample-shadow">A sample shadow</h2>
+<p>Let's imagine we're creating a media player for a podcast page as a component. For users of the media player, the element will look something like this:</p>
+<code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">podcast-player</span> <span class="hljs-attr">src</span>=<span class="hljs-string">&quot;episode.mp3&quot;</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-name">podcast-player</span>&gt;</span></pre></code>
+<p>Here's the actual implementation, and a demo that plays an episode of NPR's <i>Code Switch</i>:</p>
+<code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">script</span>&gt;</span><span class="javascript">
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PodcastPlayer</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+    <span class="hljs-keyword">var</span> shadow = <span class="hljs-built_in">this</span>.attachShadow({ <span class="hljs-attr">mode</span>: <span class="hljs-string">&quot;open&quot;</span> });
+    shadow.innerHTML = <span class="hljs-string">`
+      &lt;style&gt;
+        button {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          width: 75px;
+          height: 75px;
+          border-radius: 100%;
+          border: none;
+          background: #808;
+          color: white;
+          text-transform: uppercase;
+          cursor: pointer;
+        }
+      &lt;/style&gt;
+      &lt;audio&gt;&lt;/audio&gt;
+      &lt;button&gt;Play&lt;/button&gt;
+    `</span>;
+    <span class="hljs-built_in">this</span>.audio = shadow.querySelector(<span class="hljs-string">&quot;audio&quot;</span>);
+
+    <span class="hljs-built_in">this</span>.playButton = shadow.querySelector(<span class="hljs-string">&quot;button&quot;</span>);
+    <span class="hljs-built_in">this</span>.playButton.addEventListener(<span class="hljs-string">&quot;click&quot;</span>, <span class="hljs-function">() =&gt;</span> <span class="hljs-built_in">this</span>.onClickPlay());
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">observedAttributes</span>() {
+    <span class="hljs-keyword">return</span> [ <span class="hljs-string">&quot;src&quot;</span> ];
+  }
+
+  <span class="hljs-function"><span class="hljs-title">attributeChangedCallback</span>(<span class="hljs-params">attr, was, value</span>)</span> {
+    <span class="hljs-keyword">switch</span> (attr) {
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;src&quot;</span>:
+        <span class="hljs-built_in">this</span>.audio.src = value;
+        <span class="hljs-built_in">this</span>.audio.currentTime = <span class="hljs-number">0</span>;
+        <span class="hljs-built_in">this</span>.playButton.innerHTML = <span class="hljs-string">&quot;Play&quot;</span>;
+      <span class="hljs-keyword">break</span>;
+    }
+  }
+
+  <span class="hljs-function"><span class="hljs-title">onClickPlay</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.audio.paused) {
+      <span class="hljs-built_in">this</span>.audio.play();
+      <span class="hljs-built_in">this</span>.playButton.innerHTML = <span class="hljs-string">&quot;Playing&quot;</span>;
+    } <span class="hljs-keyword">else</span> {
+      <span class="hljs-built_in">this</span>.audio.pause();
+      <span class="hljs-built_in">this</span>.playButton.innerHTML = <span class="hljs-string">&quot;Play&quot;</span>;
+    }
+  }
+}
+
+customElements.define(<span class="hljs-string">&quot;podcast-player&quot;</span>, PodcastPlayer);
+</span><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-name">podcast-player</span> 
+  <span class="hljs-attr">src</span>=<span class="hljs-string">&quot;https://play.podtrac.com/npr-510312/edge1.pod.npr.org/anon.npr-mp3/npr/codeswitch/2020/12/20201222_codeswitch_storylab_holiday_version_ljd_8pm.mp3&quot;</span>
+&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">podcast-player</span>&gt;</span></pre></code>
+<script>
+class PodcastPlayer extends HTMLElement {
+  constructor() {
+    super();
+    var shadow = this.attachShadow({ mode: "open" });
+    shadow.innerHTML = `
+      <style>
+        button {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          width: 75px;
+          height: 75px;
+          border-radius: 100%;
+          border: none;
+          background: #808;
+          color: white;
+          text-transform: uppercase;
+          cursor: pointer;
+        }
+      </style>
+      <audio></audio>
+      <button>Play</button>
+    `;
+    this.audio = shadow.querySelector("audio");
+
+    this.playButton = shadow.querySelector("button");
+    this.playButton.addEventListener("click", () => this.onClickPlay());
+  }
+
+  static get observedAttributes() {
+    return [ "src" ];
+  }
+
+  attributeChangedCallback(attr, was, value) {
+    switch (attr) {
+      case "src":
+        this.audio.src = value;
+        this.audio.currentTime = 0;
+        this.playButton.innerHTML = "Play";
+      break;
+    }
+  }
+
+  onClickPlay() {
+    if (this.audio.paused) {
+      this.audio.play();
+      this.playButton.innerHTML = "Playing";
+    } else {
+      this.audio.pause();
+      this.playButton.innerHTML = "Play";
+    }
+  }
+}
+
+customElements.define("podcast-player", PodcastPlayer);
+</script>
+
+<podcast-player 
+  src="https://play.podtrac.com/npr-510312/edge1.pod.npr.org/anon.npr-mp3/npr/codeswitch/2020/12/20201222_codeswitch_storylab_holiday_version_ljd_8pm.mp3"
+></podcast-player>
+<p>Much of this code should look familiar: we have a method that triggers playback from and event listener, and an <var>attributeChangedCallback</var> that updates our player when the "src" attribute is set.</p>
+<p>In the shadow DOM for our element, we've added three tags through a simple HTML block. First, there's a style tag, which applies visual styling to our button. Thanks to the isolation of the shadow DOM, our selectors can be extremely simple, targeting elements only by tag name. Buttons outside the element won't be affected, since the styles can't exit the shadow DOM.</p>
+<p>Style tags are a common way to add CSS to a shadow fragment. It's also possible to include a stylesheet with a <var>&lt;link rel="stylesheet"&gt;</var> tag, but it'll be downloaded and displayed asynchronously, creaing a flash of unstyled content. Most of the time, an inline stylesheet is an easier and simpler solution. Since it's created from JS, and the styles don't leak out into the wider document, it doesn't really create an issue for performance or page weight.</p>
+<p>We also have an audio tag and a button. In order to work with these for playback and event listeners, we need to get a reference to them somehow &mdash; calling <var>querySelector()</var> on the shadow root does the trick. We could also have constructed these elements through <var>document.createElement()</var> and appended them manually to the shadow root, retaining references to them for later, but that tends to get messy as the markup gets more complex.</p>
+<p>If you query for this element in the browser console, none of this will be visible to you. Users of our <var>&lt;podcast-player&gt;</var> can style buttons or run any DOM queries they might choose, and our code won't interfere or be disturbed.</p>
+<h2 id="automatic-shadow-templating">Automatic shadow templating</h2>
+<p>Originally, Web Components included another API, HTML Imports, that helped developers package their components into a self-sufficient file. The imported HTML would include the script for their behavior, a <var>&lt;template&gt;</var> with their shadow markup, and any other dependencies they might need. Unfortunately, HTML Imports never got broad browser support, which also left <var>&lt;template&gt;</var> in a much less useful place.</p>
+<p>In the end, I don't know that this matters very much. New syntax features like template string literals make it a lot easier to write blocks of multiline HTML in JavaScript itself, instead of cloning it from a node in the page. We can augment our base class to automatically fill the element's shadow DOM:</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CustomElement</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+
+    <span class="hljs-built_in">this</span>.elements = {};
+    <span class="hljs-built_in">this</span>.attachShadow({ <span class="hljs-attr">mode</span>: <span class="hljs-string">&quot;open&quot;</span> });
+
+    <span class="hljs-keyword">if</span> (def.template) {
+      <span class="hljs-built_in">this</span>.shadowRoot.innerHTML = def.template;
+      <span class="hljs-built_in">this</span>.shadowRoot.querySelectorAll(<span class="hljs-string">`[as]`</span>).forEach(<span class="hljs-function"><span class="hljs-params">el</span> =&gt;</span> {
+        <span class="hljs-keyword">var</span> name = el.getAttribute(<span class="hljs-string">&quot;as&quot;</span>);
+        <span class="hljs-built_in">this</span>.elements[name] = el;
+      });
+    }
+
+    <span class="hljs-comment">/* ... rest of constructor */</span>
+  }
+}</pre></code>
+<p>This code looks for a static <var>template</var> property on the class definition. If it's there, it splats that string into the shadow root. Any elements in the template with an "as" attribute are made available on the <var>elements</var> property for easy access. This isn't a sophisticated templating system, but it handles a lot of use cases without a lot of code, especially with the other convenience features of our base class. For example, a simple button element:</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ButtonExample</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">CustomElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+
+    <span class="hljs-built_in">this</span>.elements.alertButton.addEventListener(<span class="hljs-string">&quot;click&quot;</span>, <span class="hljs-built_in">this</span>.onClick);
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">boundMethods</span>() {
+    <span class="hljs-keyword">return</span> [<span class="hljs-string">&quot;onClick&quot;</span>];
+  }
+
+  <span class="hljs-function"><span class="hljs-title">onClick</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">window</span>.alert(<span class="hljs-string">&quot;Clicked!&quot;</span>);
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">template</span>() {
+    <span class="hljs-keyword">return</span> <span class="hljs-string">`
+      &lt;button as=&quot;alertButton&quot;&gt;Click me&lt;/button&gt;
+    `</span>
+  }
+}</pre></code>
+<p>With modern bundling tools, like Webpack or Rollup, you can write that template as a separate HTML file and import it. From there, you can use the lookup on <var>this.elements</var> to mount a more comprehensive templating solution, like <a href="https://lit-html.polymer-project.org/">lit-html</a>, onto sections of the shadow if you need to.</p>
+<p>That said, my experience is that a large and complex shadow DOM is usually something to be avoided. Every shadow boundary creates additional complexity for managing focus, event listeners, DOM manipulation, and even inspecting components with the dev tools. The ideal is to keep the shadow to a minimum &mdash; use it for UI controls and decoration &mdash; but leave as much of the page in the light as possible. In the next chapter, we'll see how to make that a reality.</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="sd-intro.html"> &laquo; Structuring components</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="sd-slots.html"> Slots &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>
