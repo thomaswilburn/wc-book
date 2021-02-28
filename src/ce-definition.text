@@ -6,24 +6,7 @@ summary:Subclassing HTMLElement for fun and profit
 
 Every custom element starts with a JavaScript class that extends `HTMLElement`. Here's a simple example that turns yellow when you click it:
 
-@codeblock(js)...
-class HighlightElement extends HTMLElement {
-  constructor() {
-    super();
-    this.highlight = false;
-    this.addEventListener("click", () => this.toggleHighlight());
-  }
-
-  toggleHighlight() {
-    this.highlight = !this.highlight;
-    if (this.highlight) {
-      this.style.background = "yellow";
-    } else {
-      this.style.background = "";
-    }
-  }
-}
-...codeblock
+@includeCode(js) snippets/highlight-element.js
 
 Our element class has a constructor, where we can set up properties, and a method (`toggleHighlight`) that gets called from an event listener.
 
@@ -42,22 +25,9 @@ Once defined, any existing `<highlight-element>` tags in the page will be upgrad
 @html...
 <highlight-element>Click me!</highlight-element>
 <script>
-class HighlightElement extends HTMLElement {
-  constructor() {
-    super();
-    this.highlight = false;
-    this.addEventListener("click", () => this.toggleHighlight());
-  }
-
-  toggleHighlight() {
-    this.highlight = !this.highlight;
-    if (this.highlight) {
-      this.style.background = "yellow";
-    } else {
-      this.style.background = "";
-    }
-  }
-}
+...html
+@include snippets/highlight-element.js
+@html...
 window.customElements.define("highlight-element", HighlightElement);
 </script>
 ...html

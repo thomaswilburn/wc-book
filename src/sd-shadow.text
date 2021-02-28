@@ -40,12 +40,10 @@ class ExampleElement extends HTMLElement {
 
 Keep in mind, the shadow root effectively turns its host into a replaced element, like an `<img>` or `<audio>` tag. You can place child elements in the light DOM of the host, but they won't show up on the page automatically.
 
-@subhead A sample shadow
-
 Let's imagine we're creating a media player for a podcast page as a component. For users of the media player, the element will look something like this:
 
 @codeblock(html)...
-<podcast-player src="episode.mp3"><podcast-player>
+<podcast-player src="episode.mp3"></podcast-player>
 ...codeblock
 
 Here's the actual implementation, and a demo that plays an episode of NPR's <i>Code Switch</i>:

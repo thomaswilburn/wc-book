@@ -1,6 +1,345 @@
 @metadata...
 title:Slots
 type:chapter
-summary:Bringing Shadow DOM back to the light
+summary:Bringing shadow DOM back to the light
 ...metadata
 
+By now we're starting to see why shadow DOM is a mixed blessing. Isolation from the styles and scripts of the larger page is incredibly powerful for building reusable widgets, but we also lose the ability to share styles if we want to, and anything that crosses the shadow DOM boundary (such as focus or event propagation) becomes more cumbersome. Shadow DOM also hides child elements, which implies it can only be used as a leaf node of the document tree, not as a container for other markup.
+
+What we want is a way to retain the shadow DOM for those parts of the component where isolation is useful, but still be able to surface the light DOM &mdash; preferably at a location of our choosing. The `<slot>` element is a declarative feature for doing just that. Imagine a `<slot-example>` component with the following shadow DOM:
+
+@codeblock(html)...
+<b>START</b>
+<slot></slot>
+<b>END</b>
+...codeblock
+
+We'll place that element in the page, but we'll also put some content inside of it &mdash; not in the shadow, but just as regular markup.
+
+@codeblock(html)...
+<slot-example>
+  <i>Hello, world!</i>
+</slot-example>
+...codeblock
+
+@html...
+<script>
+class SlotExample extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this.shadowRoot.innerHTML = `
+      <b>START</b>
+      <slot></slot>
+      <b>END</b>
+    `;
+  }
+}
+customElements.define("slot-example", SlotExample);
+</script>
+...html
+
+Normally, the shadow DOM's replacement effect means that we'd only see <b>START</b> <b>END</b> where our custom element was placed. But the `<slot>` element takes any children from the light DOM and recomposes them (visually) inside itself. As a result, the element renders as:
+
+<slot-example><i>Hello, world!</i></slot-example>
+
+Since that paragraph is a live example, if you inspect it, you'll see that the `<i>` tag is still in the light DOM, it's just being rendered at a specific point in the shadow. You can style and query for it as normal, and as far as scripts are concerned, it's the only child of the custom element. Effectively, the shadow DOM has gone from being a cave to being a tunnel: we can choose to enter the shadow when we need isolation, and to re-emerge when it suits us.
+
+@subhead Example: `<tab-panel>`
+
+Let's create a simple, real-world example. A common widget on the web is a tab panel. Using slots and shadow DOM, we can make it easy to author the content by simply placing it inside our custom element, while the tab UI itself remains in shadow DOM. Our final page markup will look like this:
+
+@codeblock(html)...
+<tab-collection>
+  <div data-title="Tab A"> content A </div>
+  <div data-title="Tab B"> content B </div>
+  <div data-title="Tab C"> content C </div>
+</tab-collection>
+...codeblock
+
+And the component itself:
+
+@html...
+<script>
+  class TabCollection extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: "open" });
+      this.shadowRoot.innerHTML = `
+        <style>
+          .tab-row {
+            display: flex;
+            margin: 0;
+            padding: 0;
+            list-style-type: none;
+            border-bottom: 1px solid black;
+          }
+
+          .tab-row button {
+            display: inline-block;
+            padding: 4px 12px;
+            border: 1px solid black;
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+            background: #DDD;
+            color: #888;
+          }
+
+          .tab-row button.active {
+            background: white;
+            color: black;
+          }
+        </style>
+        <nav class="tab-row"></nav>
+        <slot></slot>
+      `;
+      this.tabs = this.shadowRoot.querySelector(".tab-row");
+      this.panelSlot = this.shadowRoot.querySelector("slot");
+      this.panelSlot.addEventListener("slotchange", () => this.updateTabs());
+    }
+
+    connectedCallback() {
+      this.updateTabs();
+    }
+
+    updateTabs() {
+      this.tabs.innerHTML = "";
+      var panels = this.panelSlot.assignedElements();
+      var created = panels.map(p => {
+        var tab = document.createElement("button");
+        tab.innerHTML = p.dataset.title;
+        tab.addEventListener("click", e => this.onClickTab(tab, p));
+        this.tabs.appendChild(tab);
+        return tab;
+      });
+      if (created.length) {
+        var [ first ] = created;
+        first.click();
+      }
+    }
+
+    onClickTab(clicked, panel) {
+      var tabs = this.tabs.querySelectorAll("button");
+      tabs.forEach(t => t.classList.remove("active"));
+      var panels = this.panelSlot.assignedElements();
+      clicked.classList.add("active");
+      panels.forEach(p => p.setAttribute("hidden", ""));
+      panel.removeAttribute("hidden");
+    }
+  }
+  window.customElements.define("tab-collection", TabCollection);
+</script>
+<tab-collection>
+  <div data-title="Tab A"> content A </div>
+  <div data-title="Tab B"> content B </div>
+  <div data-title="Tab C"> content C </div>
+</tab-collection>
+...html
+
+@sidebar...
+This particular tab example is pretty abbreviated for demonstration purposes, and as such, it's not particularly accessible. If you're building a real tab collection, please remember to refer to the <a href="https://www.w3.org/TR/wai-aria-practices-1.1/#tabpanel">relevant WAI-ARIA best practices</a> so that your component is usable in screen readers and keyboard/switch navigation.
+...sidebar
+
+We'll start by setting up our constructor:
+
+@codeblock(js)...
+class TabCollection extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this.shadowRoot.innerHTML = `
+      <style>
+        .tab-row {
+          display: flex;
+          margin: 0;
+          padding: 0;
+          list-style-type: none;
+          border-bottom: 1px solid black;
+        }
+
+        .tab-row button {
+          display: inline-block;
+          padding: 4px 12px;
+          border: 1px solid black;
+          border-radius: 4px 4px 0 0;
+          cursor: pointer;
+          background: #DDD;
+          color: #888;
+        }
+
+        .tab-row button.active {
+          background: white;
+          color: black;
+        }
+      </style>
+      <nav class="tab-row"></nav>
+      <slot></slot>
+    `;
+    this.tabs = this.shadowRoot.querySelector(".tab-row");
+    this.panelSlot = this.shadowRoot.querySelector("slot");
+    this.panelSlot.addEventListener("slotchange", () => this.updateTabs());
+  }
+}
+...codeblock
+
+Our TabCollection class immediately creates a shadow DOM for styles and the row of tabs. But it also adds a slot which is where the actual tab content will be placed. We store references to these various elements, and we also listen for the "slotchange" event on that slot. This event fires whenever the elements assigned to that slot change, which in this case means whenever someone adds or removes a child from the custom element itself. That fires the `updateTabs()` method:
+
+@codeblock(js)...
+updateTabs() {
+  // clear any existing tabs
+  this.tabs.innerHTML = "";
+  // get all the slotted elements
+  var panels = this.panelSlot.assignedElements();
+  // for each content panel, create a tab element and place it in the row
+  var created = panels.map(p => {
+    var tab = document.createElement("button");
+    tab.innerHTML = p.dataset.title;
+    tab.addEventListener("click", e => this.onClickTab(tab, p));
+    this.tabs.appendChild(tab);
+    return tab;
+  });
+  // if we created tabs, activate the first one
+  if (created.length) {
+    var [ first ] = created;
+    first.click();
+  }
+}
+...codeblock
+
+There's a new concept here, which is the `assignedElements()` method for slots. Elements in a slot are not technically its children, since they still belong to the light DOM and are only relocated visually &mdash; in this case, they're actually children of the `<tab-collection>` itself. In order to access the panel elements so that we can create matching tabs, we can call `assignedElements()` to get an array of whatever has been placed in that particular slot.
+
+Otherwise, this is fairly standard tab code: whenever we detect a change to the slot, we clear out existing tabs, create new ones, and assign a click listener to them. We then "click" on the first item to activate it, thus calling `onClickTab()` with the tab itself and its associated panel.
+
+@codeblock(js)...
+onClickTab(clicked, panel) {
+  var tabs = this.tabs.querySelectorAll("button");
+  tabs.forEach(t => t.classList.remove("active"));
+  var panels = this.panelSlot.assignedElements();
+  clicked.classList.add("active");
+  panels.forEach(p => p.setAttribute("hidden", ""));
+  panel.removeAttribute("hidden");
+}
+...codeblock
+
+Our click listener doesn't itself do anything extraordinary: it sets the clicked tab as active, and adds the "hidden" attribute to all panels except the selected item.
+
+@sidebar...
+The "hidden" attribute is a standard, but little-known, feature of modern HTML. As such, I like to use it for visibility changes on components, since it feels less intrusive than adding a class (which would need to be styled in the light DOM) or setting the style directly. However, it's worth bearing in mind that "hidden" can be overridden by any display styles that are set on an element, so it may be worthwhile to assure the browser that you really mean it by adding a `[hidden] { display: none !important }` rule to your stylesheet.
+...sidebar
+
+Now, the cool thing about building our tab collection using slots is that the tab contents themselves are still easy to style. And because we're listening for "slotchange" events, the list is live: adding new elements will create new tabs automatically. Here's a demo where each tab is styled from a regular stylesheet, and you can press a button to add a new panel `<div>` to the `<tab-collection>`.
+
+@html...
+<style>
+.slot-changer div {
+  padding: 30px;
+}
+
+.slot-changer div:nth-child(3n) {
+  background: salmon;
+}
+
+.slot-changer div:nth-child(3n + 1) {
+  background: wheat;
+}
+
+.slot-changer div:nth-child(3n + 2) {
+  background: aliceblue;
+}
+</style>
+<tab-collection class="slot-changer">
+  <div data-title="Tab A"> content A </div>
+  <div data-title="Tab B"> content B </div>
+  <div data-title="Tab C"> content C </div>
+</tab-collection>
+<button class="add-tab">Add tab</button>
+<script>
+var collection = document.querySelector(".slot-changer");
+var button = document.querySelector(".add-tab");
+button.addEventListener("click", function() {
+  var tab = document.createElement("div");
+  tab.innerHTML = "CONTENT"
+  tab.dataset.title = "New Tab";
+  collection.appendChild(tab);
+});
+</script>
+...html
+
+@subhead Named slots and fallback content
+
+The `<slot>` element is interesting, conceptually, because as compared to the other parts of the Web Component family of APIs, it can do something that ordinary elements <i>can't</i> (or <i>don't</i>). Specifically, where built-in elements place their children in a single DOM location, it's possible to have multiple `<slot>` elements and to address them individually.
+
+Here's how it works: in the shadow DOM, slots can have a "name" attribute. On the other side, in the light DOM, elements inside a shadow host (i.e., usually a custom element) can specify a matching "slot" attribute to be assigned to that named slot.
+
+@codeblock(html)...
+<!-- shadow DOM -->
+<main>
+  <slot name="main"></slot>
+  <aside>
+    <slot name="sidebar"></slot>
+  </aside>
+</main>
+
+<!-- light DOM -->
+<shadow-host>
+  <p slot="main"> PRIMARY CONTENT </p>
+  <p slot="sidebar"> SECONDARY CONTENT </p>
+</shadow-host>
+
+<!-- final composed DOM -->
+<main>
+  <slot name="main">
+    <p slot="main"> PRIMARY CONTENT </p>
+  </slot>
+  <aside>
+    <slot name="sidebar">
+      <p slot="sidebar"> SECONDARY CONTENT </p>
+    </slot>
+  </aside>
+</main>
+...codeblock
+
+If a named (or unnamed slot) doesn't have any content assigned to it, then whatever was inside that slot in the shadow DOM will be shown as a fallback. This creates an opportunity for easily theming or configuring components, by being able to replace specific portions of the DOM, but only if desired.
+
+Let's say we were building a `<llama-player>` element that mimics the classic, chaotic world of early 2000s MP3 software, and we want people to be able to reskin the icons used on the UI buttons when they include it. Without slots, this would probably be a difficult process involving a lot of attributes. With named slots and fallbacks, however, it's a piece of cake.
+
+@codeblock(html)...
+<div class="player-controls">
+  <button class="rewind">
+    <slot name="rewind">
+      <img src="./rewind.png">
+    </slot>
+  </button>
+  <button class="play-pause">
+    <slot name="play-pause">
+      <img src="./play-pause.png">
+    </slot>
+  </button>
+  <button class="stop">
+    <slot name="stop">
+      <img src="./stop.png">
+    </slot>
+  </button>
+  <button class="ffwd">
+    <slot name="ffwd">
+      <img src="./play-pause.png">
+    </slot>
+  </button>
+</div>
+...codeblock
+
+A developer including our `<llama-player>` who wants to only change the fast-forward and rewind buttons to look like hideous anime characters would then write the following markup targeting those slots:
+
+@codeblock(html)...
+<llama-player>
+  <img src="goku-rewind" slot="rewind">
+  <img src="goku-ffwd" slot="ffwd">
+</llama-player>
+...codeblock
+
+The fallback images in those two slots will be replaced with the custom artwork chosen by the developer. In the untargeted slots, the fallback remains in place. Our play and stop buttons are safe &mdash; for now.
+
+It's worth remembering a few implications of slots and fallback content that's consistent with the way that shadow DOM works, but may be surprising nonetheless:
+
+* Fallback content is not moved to the light DOM. It has to be styled with the rest of the shadow content.
+* Slotted elements will be in the light DOM, <i>but</i> just as inherited properties can go from light to shadow, they can also cross from shadow to light. If you style the parts of shadow DOM that contain your `<slot>` with properties like `color` or `font-family`, those will leak through to your slotted elements.
