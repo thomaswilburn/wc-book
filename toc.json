@@ -30,6 +30,7 @@
   {
     "section": "Case studies",
     "chapters": [
+      "CustomElement base class",
       "shader-box",
       "media-controls",
       "autocomplete-input",
