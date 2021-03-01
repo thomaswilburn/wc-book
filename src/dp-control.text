@@ -1,0 +1,143 @@
+@metadata...
+title:Association and control
+type:chapter
+summary:"for" the win
+...metadata
+
+If you've worked with form elements before, you may be familiar with the way that labels can be associated with an input element using the "for" attribute:
+
+@codeblock(html)...
+<input type="checkbox" id="controlled">
+<label for="controlled">Label goes here</label>
+...codeblock
+
+Labels associated with a form element in this way have several useful side effects. Clicking on the label will (in this case) toggle the checkbox. It also tells screen readers how to describe the input. There's a similar pattern with a lot of ARIA attributes, like <a href="https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/ARIA_Techniques/Using_the_aria-labelledby_attribute">"aria-labelledby"</a> or <a href="https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/ARIA_Techniques/Using_the_aria-activedescendant_attribute">"aria-activedescendant"</a>.
+
+Being able to link two elements together in a declarative way turns out to be a surprisingly useful pattern, especially if they're not particularly close to each other in the page. We might want to create a floating play button for a media file, for example, and be able to change which audio or video file it controls on the fly.
+
+Unfortunately, browsers don't offer a great way to automatically associate two elements together, and there are lots of scenarios where a naive implementation (say, running a query from the `attributeChangedCallback()`) will run into problems:
+
+* What if the element with the associated ID doesn't exist when the attribute is set, but is added later?
+* What if the associated element is removed, or its ID is changed?
+* What if the ID is removed from one element and added to another?
+
+Not all of these scenarios matter for every purpose &mdash; if the initiating action usually comes from the controlling element, it may be sufficient to search for the target on each call &mdash; but if your goal is a more comprehensive relationship between the two, you need something more robust. In lieu of a built-in `watchSelector()`, we'll have to build our own.
+
+@subhead Keeping an eye on IDs
+
+To create a reliable link between an element based on ID, we'll use a <a href="https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver">Mutation Observer</a> to track when nodes and attributes change. We can create one observer for the top of the document, and then allow elements (or other script functions) to register for updates when a matching element appears or is removed.
+
+Since multiple elements might watch the same ID, and we want to reduce the number of lookups that we perform, we'll store callback registrations in a map indexed by ID when someone calls `watchID()`. A matching `unwatchID()` function removes those registrations, and clears the entry entirely if no watchers are still registered.
+
+@codeblock(js)...
+var watchList = new Map();
+
+var watchID = function(id, callback) {
+  var watch = watchList.get(id) || { id, callbacks: [] };
+  // no duplicate callbacks allowed
+  if (watch.callbacks.includes(callback)) return;
+  watch.callbacks.push(callback);
+  try {
+    glance(watch);
+    watchList.set(id, watch);
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+var unwatchID = function(id, callback) {
+  var watching = watchList.get(id);
+  if (!watching) return;
+  watching.callbacks = watching.callbacks.filter(c => c != callback);
+  if (!watching.callbacks.length) {
+    watchList.delete(id);
+  }
+};
+...codeblock
+
+The `glance()` function called by `watch()` checks each ID in the map, and notifies the callback function if the value has changed. Since it's called whenever a new callback is added, we cache each ID's previous value on the callback itself, so that we won't trigger extra notifications.
+
+@codeblock(js)...
+var glance = function(watch) {
+  var result = document.getElementById(watch.id);
+  watch.callbacks.forEach(function(c) {
+    if (c.previous == result) return;
+    c(result);
+    c.previous = result;
+  })
+};
+...codeblock
+
+Finally, the piece that ties it all together is the Mutation Observer itself, which tracks additions, removals, and changes to the document. On any changes, we check each ID and notify any callbacks if the located element has changed.
+
+@codeblock(js)...
+var observer = new MutationObserver(function(mutations) {
+  watchList.forEach(glance);
+});
+
+observer.observe(document.body, {
+  subtree: true,
+  childList: true,
+  attributeFilter: ["id"]
+});
+...codeblock
+
+@subhead Creating our element assocation
+
+For demonstration purposes, we'll recreate the click functionality of the label element. To correctly associate a control with the custom element, we'll divide the work into two parts: registering a watch in `attributeChangedCallback()`, and a second function to be notified if the controlled element changes.
+
+@codeblock(js)...
+class ClickLabel extends HTMLElement {
+  constructor() {
+    super();
+    // reference to the controlled element, if any
+    this.control = null;
+    // bind the assocation callback to this instance
+    this.associate = this.associate.bind(this);
+    this.addEventListener("click", () => this.onClick());
+  }
+
+  static get observedAttributes() {
+    return ["for"]
+  }
+
+  attributeChangedCallback(attr, was, value) {
+    switch (attr) {
+      case "for":
+        // remove any existing registration
+        if (was) unwatchID(was, this.associate);
+        this.control = null;
+        // register new assocation with an ID
+        watchID(value, this.associate);
+      break;
+    }
+  }
+
+  associate(target) {
+    // this callback will receive any matching element for our ID
+    this.control = target;
+  }
+
+  onClick() {
+    // if we have an association, click the controlled element
+    if (this.control) {
+      this.control.click();
+    }
+  }
+}
+...codeblock
+
+With the watch functionality in place, our component should be able to handle all different permutations and orderings of assocation.
+
+* If a matching ID already exists in the DOM, the watch will immediately notify our element during the post-constructor `attributeChangedCallback()` call.
+* If the `<click-label>` has its "for" attribute assigned when there's no matching ID, its `control` property will stay as `null`.
+* When a matching ID is created, either on a new element or an attribute added to an existing element, the Mutation Observer will trigger and notify the element of the update.
+* When the "for" attribute is changed or removed, the association is cleared, and a new association may be created based on the updated value.
+
+It's worth asking whether the effort required to make this pattern work is worth it. Why not simply provide a getter/setter for the `control` property directly, instead of wandering through the DOM via an ID string? Which is certainly a valid question.
+
+The more advanced we are as developers, the more we often think about JavaScript deployment in terms of single-page apps and bundled code. But part of the advantage of web components is that they are self-sufficient: once defined, a custom element handles its own initialization and lifecycle. In document-oriented web development, being able to generate a relationship between two elements solely from an HTML template adds versatility.
+
+I also think there's also something to be said for designing libraries that can be used not just by relatively experienced JavaScript developers, but also by people who have only learned their way around HTML. A setter property requires someone to understand how to find an element in the DOM, how to find our element, and pass a reference from one to the other, whereas a string ID is something much easier to understand.
+
+When we bemoan how complicated web development has become, I believe part of what we mourn is the simple pleasure we felt when we could hook HTML together by hand and watch it work by magic. Declarative interfaces like this undoubtedly require more time and energy on our end, but there is value there nonetheless.

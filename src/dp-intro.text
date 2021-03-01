@@ -1,0 +1,10 @@
+@metadata...
+title:Platform design patterns
+type:section-intro
+...metadata
+
+Surprisingly &mdash; or perhaps not &mdash; the web does not have a single unified design plan for APIs and language features. It's the product of years of accretion, from different standards, opposing development teams, and changing capabilities. It's hard to imagine how anything happens, to be honest.
+
+And yet: there are design patterns on the web. <a href="https://w3ctag.github.io/design-principles/">Some formal principles</a> have developed, and over time, there are common structures we can describe. What we can describe, we can emulate.
+
+This section is about how, by following the design patterns of the web platform, we can build components that feel familiar and intuitive to developers. Along the way, we'll tour through the performance and optimization features with applications beyond components themselves.
