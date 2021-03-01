@@ -6,7 +6,7 @@ summary:Who knows what lurks in the depths of the DOM?
 
 Before web components, UI libraries on the web were a leaky abstraction. They required users to include a stylesheet, carefully engineered so that it wouldn't interfere with other items on the page. To make sure their own styles wouldn't be affected by the page, these stylesheets had to ship an exhaustive and bulky list of extra rules, just in case. A UI element from jQuery or Bootstrap also touched the DOM in unpredictable ways &mdash; there was no easy way to exclude the internal markup of its widgets from your own document queries, or be sure that it wouldn't mutate other parts of the page to achieve its goals.
 
-Built-in elements don't have this problem, sometimes notoriously so: it's almost impossible, for example, to style a select box no matter how much you (or your designer) want to. That's because they've historically had a capability that wasn't exposed to independent developers: they could create chunks of HTML and CSS that were isolated from scripts and styles, effectively invisible to developers but not to users. When it was codified into Web Components, this ability got a name: the shadow DOM.
+Built-in elements don't have this problem, sometimes notoriously so: it's almost impossible, for example, to style a select box no matter how much you (or your designer) want to. That's because they've historically had a capability that wasn't exposed to independent developers: they could create chunks of HTML and CSS that were isolated from scripts and styles, effectively invisible to developers but not to users. When it was codified into web components, this ability got a name: the shadow DOM.
 
 A shadow DOM is a document fragment that's attached to a host element. It becomes the visible contents of that element, and it uses the same DOM APIs as any other document. But special rules govern the boundary between shadow and what we can now think of as the "light" DOM.
 
@@ -63,7 +63,7 @@ If you query for this element in the browser console, none of this will be visib
 
 @subhead Automatic shadow templating
 
-Originally, Web Components included another API, HTML Imports, that helped developers package their components into a self-sufficient file. The imported HTML would include the script for their behavior, a `<template>` with their shadow markup, and any other dependencies they might need. Unfortunately, HTML Imports never got broad browser support, which also left `<template>` in a much less useful place.
+Originally, web components included another API, HTML Imports, that helped developers package their components into a self-sufficient file. The imported HTML would include the script for their behavior, a `<template>` with their shadow markup, and any other dependencies they might need. Unfortunately, HTML Imports never got broad browser support, which also left `<template>` in a much less useful place.
 
 In the end, I don't know that this matters very much. New syntax features like template string literals make it a lot easier to write blocks of multiline HTML in JavaScript itself, instead of cloning it from a node in the page. We can augment our base class to automatically fill the element's shadow DOM:
 

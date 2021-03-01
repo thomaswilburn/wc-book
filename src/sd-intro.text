@@ -3,7 +3,7 @@ title:Structuring components
 type:section-intro
 ...metadata
 
-The <a href="https://infrequently.org/2012/04/bedrock/">bedrock motivation</a>, so to speak, for Web Components has been the idea of an extensible web &mdash; one where we have APIs that "explain" how the browser does something, and let us do the same thing. That doesn't sound like much, but think about how much effort, from jQuery forward, went into something as simple as "a select box that looks good." And typically those implementations are framework specific &mdash; your theme-able select box in React can't be easily re-used in Vue, and vice versa. 
+The <a href="https://infrequently.org/2012/04/bedrock/">bedrock motivation</a>, so to speak, for web components has been the idea of an extensible web &mdash; one where we have APIs that "explain" how the browser does something, and let us do the same thing. That doesn't sound like much, but think about how much effort, from jQuery forward, went into something as simple as "a select box that looks good." And typically those implementations are framework specific &mdash; your theme-able select box in React can't be easily re-used in Vue, and vice versa. 
 
 Custom elements give us a standard framework for "how do I build a UI widget?" But they're not a complete story. Built-in UI widgets have user-agent styles and isolation from the styles on the page &mdash; your CSS doesn't affect the look of an input slider. They also have UI elements that exist to the user but are opaque to JavaScript, like the controls of an audio tag. And in some cases, like `<canvas>` or `<img>`, they actually replace their contents entirely with something else.
 

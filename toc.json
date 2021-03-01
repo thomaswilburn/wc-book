@@ -18,10 +18,10 @@
     ]
   },
   {
-    "section": "Platform Design",
+    "section": "dp-intro",
     "chapters": [
       "Attributes, events, and methods",
-      "Association and control",
+      "dp-control",
       "Developing expressive DSLs",
       "Out of sight, out of mind",
       "Framework integration"

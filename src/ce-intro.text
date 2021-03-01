@@ -9,4 +9,4 @@ These framework components are only an abstraction, however. Inspecting a React 
 
 The custom elements API also lets us build components that we can organize into an HTML tree, with one crucial difference: these aren't abstractions, but actual elements that the browser renders directly. They can be inspected without special tooling, and created or altered using the same DOM methods that you would use on an ordinary `<div>` or `<img>`.
 
-It also has some drawbacks, as we'll see: integrating into the DOM means taking on some of its flaws. But its advantages &mdash; interoperability not just with other custom elements, but with framework code as well &mdash; make it a powerful tool at the heart of the Web Component family.
+It also has some drawbacks, as we'll see: integrating into the DOM means taking on some of its flaws. But its advantages &mdash; interoperability not just with other custom elements, but with framework code as well &mdash; make it a powerful tool at the heart of the web component concept.

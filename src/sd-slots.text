@@ -281,7 +281,7 @@ button.addEventListener("click", function() {
 
 @subhead Named slots and fallback content
 
-The `<slot>` element is interesting, conceptually, because as compared to the other parts of the Web Component family of APIs, it can do something that ordinary elements <i>can't</i> (or <i>don't</i>). Specifically, where built-in elements place their children in a single DOM location, it's possible to have multiple `<slot>` elements and to address them individually.
+The `<slot>` element is interesting, conceptually, because as compared to the other parts of the web component family of APIs, it can do something that ordinary elements <i>can't</i> (or <i>don't</i>). Specifically, where built-in elements place their children in a single DOM location, it's possible to have multiple `<slot>` elements and to address them individually.
 
 Here's how it works: in the shadow DOM, slots can have a "name" attribute. On the other side, in the light DOM, elements inside a shadow host (i.e., usually a custom element) can specify a matching "slot" attribute to be assigned to that named slot.
 
