@@ -23,6 +23,6 @@ I've tried to make sure that even chapters covering basic material still have va
 
 * <b>Custom element fundamentals</b> - Covers defining and registering new tags using the custom element API
 * <b>Structuring components</b> - Primarily focused on the shadow DOM and custom elements can use it effectively
-* <b>Platform design pattersn</b> - Discusses how web components illuminate &mdash; and integrate into &mdash; the design patterns of the browser platform
+* <b>Platform design patterns</b> - Discusses how web components illuminate &mdash; and integrate into &mdash; the design patterns of the browser platform
 * <b>Case studies</b> - Walks through successful real-world web components to talk about what works, and what doesn't
 
