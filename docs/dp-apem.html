@@ -25,7 +25,7 @@
 <p>Given that this section is all about following the patterns that already exist in other DOM APIs, it's worth considering a built-in element that exposes multiple layers of data to developers: the <var>&lt;video&gt;</var> tag.</p>
 <ul>
 <li>Attributes like "controls", "loop", and "src" offer basic configuration on the tag itself &mdash; appropriate for simple, fire-and-forget usage</li>
-<li>Child elements (<var>&lt;track&gt;</var> and <var>&lt;source&gt;</var>) can be used to offer nested configuration that's still usable via HTML.</li>
+<li>Child elements (<var>&lt;track&gt;</var> and <var>&lt;source&gt;</var>) can be added for nested configuration that's still usable via HTML.</li>
 <li>Properties are used to get and set complex data for the video once it's loaded (such as <var>seekable</var>, which offers the ranges that the video can immediately jump to), as well as runtime values like <var>currentTime</var> that are expected to be used only from JavaScript.</li>
 <li>Methods are used to trigger actions, particularly asynchronous ones like <var>play()</var> that might return a fresh promise to be resolved playback actually begins.</li>
 <li>A set of well-specified events are triggered throughout the element lifecycle, ranging from "timeupdate" notifications during playback to a series of events at each stage of loading (including metadata, data, and playback readiness).</li>
@@ -62,7 +62,7 @@
 <h2 id="methods">Methods</h2>
 <ul>
 <li><b>Use for</b>: Impactful changes to the element or page, asynchronous processes</li>
-<li><b>Don't use for</b>: Setting configuration or state</li>
+<li><b>Don't use for</b>: Setting configuration or state that persists</li>
 </ul>
 <p>There's less confusion over when to use a method than betwen a property and an attribute. Do you want to explicitly do something? A method is probably the ideal choice.</p>
 <p>It is worth reflecting, however, on what things in the web platform are considered "doing something." For example, setting the "src" attribute for an image is not "doing something" enough to be a method, even though it will create a network request (with cookies!) and trigger layout once the image is loaded. Likewise, for historical reasons, the <var>offsetWidth</var> property performs a potentially lengthy layout when accessed and should probably be a method, but we're stuck with it now. Learn from those mistakes. It's easier to extend the capabilities of a method call &mdash; putting an action behind a property access is essentially forcing it to be a synchronous, single-argument function call, forever.</p>
@@ -89,10 +89,9 @@
 <span class="hljs-comment">// is the custom element</span>
 <span class="hljs-built_in">this</span>.dispatchEvent(event);</pre></code>
 <p>We provide a couple of extra options when creating our custom event: <var>bubbles: true</var> sets the event so that it will propagate up through parent elements until it reaches the document root (or until something calls <var>stopPropagation()</var> on the event). The <var>composed</var> option will make sure that it crosses shadow DOM boundaries &mdash; otherwise, it'll just stop at the shadow root. We did not provide a <var>detail</var> option, but if you do, whatever data you pass in will be available on the event.</p>
-<p>When creating custom event types, you're least likely to run into issues if they're all lower case and one word, without <var>_</var> or <var>-</var> separators. Although there are some DOM events that don't match this pattern ("DOMContentLoaded" comes to mind), almost all modern events do, so you'll be more consistent that way. You're also slightly less likely to run into framework compatibility issues.</p>
+<p>When creating custom event types, you're least likely to run into issues if they're all lower case and one word, without <var>_</var> or <var>-</var> separators. Although there are some DOM events that don't match this pattern ("DOMContentLoaded" comes to mind), almost all modern events do, so you'll be more consistent that way.</p>
 <p>Since events are not retroactively dispatched when a listener is added (i.e., if you register a listener after the "load" event has already fired, you're out of luck), you shouldn't rely on them to get the actual state of a component. Instead, a good strategy is to have properties on the element that reflect its current state, and to dispatch events when those change. Developers should then check the component for specifics, not the event.</p>
-<p>It's up to you how closely you want to stick to existing DOM patterns for those flag properties, since some can be a little cryptic, but try to stick with existing behavior if you use a common property name (e.g., the boolean <var>complete</var> on image elements or the enumerated <var>readyState</var> on media tags).</p>
-<p>Events are a good mechanism for changes or notifications that could be repeated, or stages along a chain of asynchronous processes. If you're using an event to notify a developer about the result of an individual process, like a specific network fetch or a processed data buffer, consider using a Promise instead.</p>
+<p>Events are a good mechanism for changes or notifications that could be repeated, or stages along a chain of asynchronous processes. They're not return values. If you're using an event to notify a developer about the result of an individual process, like a specific network fetch or a processed data buffer, consider using a Promise instead.</p>
 <h2 id="strength-in-layers">Strength in layers</h2>
 <p>There's no one best solution for talking to a custom element. Instead, a good component will use all four in concert to create a natural heirarchy of interaction:</p>
 <ul>
