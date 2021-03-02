@@ -134,7 +134,7 @@ class ExampleElement extends CustomElement {
 
 Our ExampleElement will get `attributeChangedCallback()` notifications for "src", "width", and "height" attributes, but it will also automatically have `src`, `width`, and `height` properties on the element itself that affect those attributes. This means you can call `setAttribute()` a lot less in your code, and your element will behave more like the built-ins that people are used to.
 
-You could set this code to work from the actual `observedAttributes` value instead of `mirroredProps`, since we almost always want "live" attributes to be mirrored. I think there's value in having these be separate concepts, even if it does mean a little duplications.
+Attributes should almost always have mirrored properties. We don't just use the `observedAttributes` array as the source for this integration, because you may often want to write custom getter/setter functions for some attributes &mdash; for example, a getter for a URL-based attribute might return a fully-resolved and -qualified URL instead of the literal attribute string value.
 
 Finally, there's a fun little static method outside of the constructor on our `CustomElement` class:
 

@@ -25,11 +25,11 @@
 <p>What we want is a way to retain the shadow DOM for those parts of the component where isolation is useful, but still be able to surface the light DOM &mdash; preferably at a location of our choosing. The <var>&lt;slot&gt;</var> element is a declarative feature for doing just that. Imagine a <var>&lt;slot-example&gt;</var> component with the following shadow DOM:</p>
 <code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">b</span>&gt;</span>START<span class="hljs-tag">&lt;/<span class="hljs-name">b</span>&gt;</span>
 <span class="hljs-tag">&lt;<span class="hljs-name">slot</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">slot</span>&gt;</span>
-<span class="hljs-tag">&lt;<span class="hljs-name">b</span>&gt;</span>END<span class="hljs-tag">&lt;/<span class="hljs-name">b</span>&gt;</span></pre></code>
+<span class="hljs-tag">&lt;<span class="hljs-name">b</span>&gt;</span>END<span class="hljs-tag">&lt;/<span class="hljs-name">b</span>&gt;</span></pre></code>
 <p>We'll place that element in the page, but we'll also put some content inside of it &mdash; not in the shadow, but just as regular markup.</p>
 <code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">slot-example</span>&gt;</span>
   <span class="hljs-tag">&lt;<span class="hljs-name">i</span>&gt;</span>Hello, world!<span class="hljs-tag">&lt;/<span class="hljs-name">i</span>&gt;</span>
-<span class="hljs-tag">&lt;/<span class="hljs-name">slot-example</span>&gt;</span></pre></code>
+<span class="hljs-tag">&lt;/<span class="hljs-name">slot-example</span>&gt;</span></pre></code>
 <script>
 class SlotExample extends HTMLElement {
   constructor() {
@@ -53,7 +53,7 @@ customElements.define("slot-example", SlotExample);
   <span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">data-title</span>=<span class="hljs-string">&quot;Tab A&quot;</span>&gt;</span> content A <span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span>
   <span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">data-title</span>=<span class="hljs-string">&quot;Tab B&quot;</span>&gt;</span> content B <span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span>
   <span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">data-title</span>=<span class="hljs-string">&quot;Tab C&quot;</span>&gt;</span> content C <span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span>
-<span class="hljs-tag">&lt;/<span class="hljs-name">tab-collection</span>&gt;</span></pre></code>
+<span class="hljs-tag">&lt;/<span class="hljs-name">tab-collection</span>&gt;</span></pre></code>
 <p>And the component itself:</p>
 <script>
   class TabCollection extends HTMLElement {
@@ -183,7 +183,7 @@ customElements.define("slot-example", SlotExample);
     <span class="hljs-built_in">this</span>.panelSlot = <span class="hljs-built_in">this</span>.shadowRoot.querySelector(<span class="hljs-string">&quot;slot&quot;</span>);
     <span class="hljs-built_in">this</span>.panelSlot.addEventListener(<span class="hljs-string">&quot;slotchange&quot;</span>, <span class="hljs-function">() =&gt;</span> <span class="hljs-built_in">this</span>.updateTabs());
   }
-}</pre></code>
+}</pre></code>
 <p>Our TabCollection class immediately creates a shadow DOM for styles and the row of tabs. But it also adds a slot which is where the actual tab content will be placed. We store references to these various elements, and we also listen for the "slotchange" event on that slot. This event fires whenever the elements assigned to that slot change, which in this case means whenever someone adds or removes a child from the custom element itself. That fires the <var>updateTabs()</var> method:</p>
 <code class="language-js"><pre><span class="hljs-function"><span class="hljs-title">updateTabs</span>(<span class="hljs-params"></span>)</span> {
   <span class="hljs-comment">// clear any existing tabs</span>
@@ -203,7 +203,7 @@ customElements.define("slot-example", SlotExample);
     <span class="hljs-keyword">var</span> [ first ] = created;
     first.click();
   }
-}</pre></code>
+}</pre></code>
 <p>There's a new concept here, which is the <var>assignedElements()</var> method for slots. Elements in a slot are not technically its children, since they still belong to the light DOM and are only relocated visually &mdash; in this case, they're actually children of the <var>&lt;tab-collection&gt;</var> itself. In order to access the panel elements so that we can create matching tabs, we can call <var>assignedElements()</var> to get an array of whatever has been placed in that particular slot.</p>
 <p>Otherwise, this is fairly standard tab code: whenever we detect a change to the slot, we clear out existing tabs, create new ones, and assign a click listener to them. We then "click" on the first item to activate it, thus calling <var>onClickTab()</var> with the tab itself and its associated panel.</p>
 <code class="language-js"><pre><span class="hljs-function"><span class="hljs-title">onClickTab</span>(<span class="hljs-params">clicked, panel</span>)</span> {
@@ -213,7 +213,7 @@ customElements.define("slot-example", SlotExample);
   clicked.classList.add(<span class="hljs-string">&quot;active&quot;</span>);
   panels.forEach(<span class="hljs-function"><span class="hljs-params">p</span> =&gt;</span> p.setAttribute(<span class="hljs-string">&quot;hidden&quot;</span>, <span class="hljs-string">&quot;&quot;</span>));
   panel.removeAttribute(<span class="hljs-string">&quot;hidden&quot;</span>);
-}</pre></code>
+}</pre></code>
 <p>Our click listener doesn't itself do anything extraordinary: it sets the clicked tab as active, and adds the "hidden" attribute to all panels except the selected item.</p>
 <aside class="sidebar">
 <p>The "hidden" attribute is a standard, but little-known, feature of modern HTML. As such, I like to use it for visibility changes on components, since it feels less intrusive than adding a class (which would need to be styled in the light DOM) or setting the style directly. However, it's worth bearing in mind that "hidden" can be overridden by any display styles that are set on an element, so it may be worthwhile to assure the browser that you really mean it by adding a <var>[hidden] { display: none !important }</var> rule to your stylesheet.</p>
@@ -279,7 +279,7 @@ button.addEventListener("click", function() {
       <span class="hljs-tag">&lt;<span class="hljs-name">p</span> <span class="hljs-attr">slot</span>=<span class="hljs-string">&quot;sidebar&quot;</span>&gt;</span> SECONDARY CONTENT <span class="hljs-tag">&lt;/<span class="hljs-name">p</span>&gt;</span>
     <span class="hljs-tag">&lt;/<span class="hljs-name">slot</span>&gt;</span>
   <span class="hljs-tag">&lt;/<span class="hljs-name">aside</span>&gt;</span>
-<span class="hljs-tag">&lt;/<span class="hljs-name">main</span>&gt;</span></pre></code>
+<span class="hljs-tag">&lt;/<span class="hljs-name">main</span>&gt;</span></pre></code>
 <p>If a named (or unnamed slot) doesn't have any content assigned to it, then whatever was inside that slot in the shadow DOM will be shown as a fallback. This creates an opportunity for easily theming or configuring components, by being able to replace specific portions of the DOM, but only if desired.</p>
 <p>Let's say we were building a <var>&lt;llama-player&gt;</var> element that mimics the classic, chaotic world of early 2000s MP3 software, and we want people to be able to reskin the icons used on the UI buttons when they include it. Without slots, this would probably be a difficult process involving a lot of attributes. With named slots and fallbacks, however, it's a piece of cake.</p>
 <code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;player-controls&quot;</span>&gt;</span>
@@ -303,12 +303,12 @@ button.addEventListener("click", function() {
       <span class="hljs-tag">&lt;<span class="hljs-name">img</span> <span class="hljs-attr">src</span>=<span class="hljs-string">&quot;./play-pause.png&quot;</span>&gt;</span>
     <span class="hljs-tag">&lt;/<span class="hljs-name">slot</span>&gt;</span>
   <span class="hljs-tag">&lt;/<span class="hljs-name">button</span>&gt;</span>
-<span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span></pre></code>
+<span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span></pre></code>
 <p>A developer including our <var>&lt;llama-player&gt;</var> who wants to only change the fast-forward and rewind buttons to look like hideous anime characters would then write the following markup targeting those slots:</p>
 <code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">llama-player</span>&gt;</span>
   <span class="hljs-tag">&lt;<span class="hljs-name">img</span> <span class="hljs-attr">src</span>=<span class="hljs-string">&quot;goku-rewind&quot;</span> <span class="hljs-attr">slot</span>=<span class="hljs-string">&quot;rewind&quot;</span>&gt;</span>
   <span class="hljs-tag">&lt;<span class="hljs-name">img</span> <span class="hljs-attr">src</span>=<span class="hljs-string">&quot;goku-ffwd&quot;</span> <span class="hljs-attr">slot</span>=<span class="hljs-string">&quot;ffwd&quot;</span>&gt;</span>
-<span class="hljs-tag">&lt;/<span class="hljs-name">llama-player</span>&gt;</span></pre></code>
+<span class="hljs-tag">&lt;/<span class="hljs-name">llama-player</span>&gt;</span></pre></code>
 <p>The fallback images in those two slots will be replaced with the custom artwork chosen by the developer. In the untargeted slots, the fallback remains in place. Our play and stop buttons are safe &mdash; for now.</p>
 <p>It's worth remembering a few implications of slots and fallback content that's consistent with the way that shadow DOM works, but may be surprising nonetheless:</p>
 <ul>

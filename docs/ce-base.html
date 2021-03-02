@@ -122,7 +122,7 @@
   }
 }</pre></code>
 <p>Our ExampleElement will get <var>attributeChangedCallback()</var> notifications for "src", "width", and "height" attributes, but it will also automatically have <var>src</var>, <var>width</var>, and <var>height</var> properties on the element itself that affect those attributes. This means you can call <var>setAttribute()</var> a lot less in your code, and your element will behave more like the built-ins that people are used to.</p>
-<p>You could set this code to work from the actual <var>observedAttributes</var> value instead of <var>mirroredProps</var>, since we almost always want "live" attributes to be mirrored. I think there's value in having these be separate concepts, even if it does mean a little duplications.</p>
+<p>Attributes should almost always have mirrored properties. We don't just use the <var>observedAttributes</var> array as the source for this integration, because you may often want to write custom getter/setter functions for some attributes &mdash; for example, a getter for a URL-based attribute might return a fully-resolved and -qualified URL instead of the literal attribute string value.</p>
 <p>Finally, there's a fun little static method outside of the constructor on our <var>CustomElement</var> class:</p>
 <code class="language-js"><pre><span class="hljs-keyword">static</span> <span class="hljs-function"><span class="hljs-title">define</span>(<span class="hljs-params">tag</span>)</span> {
   <span class="hljs-keyword">try</span> {

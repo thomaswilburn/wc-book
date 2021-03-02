@@ -1,0 +1,113 @@
+@metadata...
+title:Inputs and outputs
+type:chapter
+summary:Attributes, properties, events, and methods
+...metadata
+
+Once you have a web component in the page that does something more complex than a checkbox, how do you manage its inputs and outputs? Attributes can serve as a fine interface for primitive values, like strings and numbers, but they're less workable when we want to create complex, nested data bindings. How do we decide the interface of our element?
+
+Given that this section is all about following the patterns that already exist in other DOM APIs, it's worth considering a built-in element that exposes multiple layers of data to developers: the `<video>` tag.
+
+* Attributes like "controls", "loop", and "src" offer basic configuration on the tag itself &mdash; appropriate for simple, fire-and-forget usage
+* Child elements (`<track>` and `<source>`) can be used to offer nested configuration that's still usable via HTML.
+* Properties are used to get and set complex data for the video once it's loaded (such as `seekable`, which offers the ranges that the video can immediately jump to), as well as runtime values like `currentTime` that are expected to be used only from JavaScript.
+* Methods are used to trigger actions, particularly asynchronous ones like `play()` that might return a fresh promise to be resolved playback actually begins.
+* A set of well-specified events are triggered throughout the element lifecycle, ranging from "timeupdate" notifications during playback to a series of events at each stage of loading (including metadata, data, and playback readiness).
+
+I've worked with `<audio>` and `<video>` a great deal while building rich news pages, and they're not perfect, but I think they do serve as a fine example of how to structure the interface to your element. In this chapter, we'll talk about when to use (or not) these inputs effectively effectively &mdash; with one exception, child elements, which will be examined more closely in the chapter on domain-specific languages.
+
+@subhead Attributes
+
+* <b>Use for</b>: initial/default configuration values, string- or number-based configuration
+* <b>Don't use for</b>: complex or nested configuration values, anything that updates very quickly
+
+We've talked a lot about attributes, and clearly I'm a fan. In general, if you have simple configuration that you want to be able to set on element creation, from a template, or from the dev tools, attributes are a great choice. Ideally, all of these should be mirrored to properties, since it makes them much easier to use from JavaScript.
+
+@subhead Properties
+
+* <b>Use for</b>: complex runtime options or transient values, JavaScript framework integration
+* <b>Don't use for</b>: anything that creates side effects as a part of the property setter
+
+A common pattern with properties on built-in elements is that they reflect the "live" state of the element, whereas attributes represent the "starting" configuration. For example, an input may have the "checked" attribute specified to set its initial state, but the current value of the input state is available via the `checked` property, and may or may not update the attribute to match.
+
+Properties may also be used with getter/setter functions to trigger updates to the element itself. For example, setting `currentTime` on a video element will cause it to seek to a new position to match. This pattern should be used with caution: developers generally expect that property access should be cheap and side effect-free. If something will be disruptive to users, such as starting audio or occupying the main thread for a significant time, it should be moved to a method instead (see below).
+
+Properties are also useful on custom elements because they're able to accept arrays, object, and other reference types, which means that they can be used seamlessly for data binding in frameworks like Preact or Vue. We'll talk more about that in a future chapter.
+
+One thing to be aware of, when loading custom tag definitions asynchronously (through bundle-splitting or the `import()` feature of ES modules) is that code may set properties on them before `customElements.define()` runs and they're upgraded to their new class definition. You can make sure that getter/setter properties correctly fire for these values by adding this code to your element constructor:
+
+@codeblock(js)...
+// definedProps is a list of properties with 
+// getters/setters defined on the class
+for (var prop of definedProps) {
+  // check to see if the property was set directly
+  if (this.hasOwnProperty(prop)) {
+    var preUpgrade = this[prop];
+    // delete the value to expose the prototype
+    delete this[prop];
+    // set the value again to trigger the setter
+    this[prop] = preUpgrade
+  }
+}
+...codeblock
+
+You should not do this in the constructor for properties that are meant to be set via attributes, or that use the `mirroredProps` array from our base class example, since that would set a DOM attribute on the element, and that's illegal in a custom element constructor.
+
+
+@subhead Methods
+
+* <b>Use for</b>: Impactful changes to the element or page, asynchronous processes
+* <b>Don't use for</b>: Setting configuration or state
+
+There's less confusion over when to use a method than betwen a property and an attribute. Do you want to explicitly do something? A method is probably the ideal choice.
+
+It is worth reflecting, however, on what things in the web platform are considered "doing something." For example, setting the "src" attribute for an image is not "doing something" enough to be a method, even though it will create a network request (with cookies!) and trigger layout once the image is loaded. Likewise, for historical reasons, the `offsetWidth` property performs a potentially lengthy layout when accessed and should probably be a method, but we're stuck with it now. Learn from those mistakes. It's easier to extend the capabilities of a method call &mdash; putting an action behind a property access is essentially forcing it to be a synchronous, single-argument function call, forever.
+
+When in doubt, use a method if:
+
+* the action would have normally required (or been initiated by) a user gesture, like a click or key press
+* the result is an async process (in which case, be sure to return a Promise)
+* you're providing data that is costly in time or CPU to gather
+* using the same value twice could have different effects
+* setting some data would create a side effect
+* the process is currently synchronous, but might become async in the future
+
+@subhead Events
+
+* <b>Use for</b>: notifications about ongoing work, particularly lengthy processes
+* <b>Don't use for</b>: one-time values, such as method call results
+
+"Props down, events up" is a common pattern in frameworks, but it's also a good architecture choice for web components. In modern browsers, it's pretty easy to dispatch an event from a custom element:
+
+@codeblock(js)...
+
+var event = new CustomEvent("eventname", {
+  bubbles: true,
+  composed: true
+});
+// assuming we're in a method where `this`
+// is the custom element
+this.dispatchEvent(event);
+
+...codeblock
+
+We provide a couple of extra options when creating our custom event: `bubbles: true` sets the event so that it will propagate up through parent elements until it reaches the document root (or until something calls `stopPropagation()` on the event). The `composed` option will make sure that it crosses shadow DOM boundaries &mdash; otherwise, it'll just stop at the shadow root. We did not provide a `detail` option, but if you do, whatever data you pass in will be available on the event.
+
+When creating custom event types, you're least likely to run into issues if they're all lower case and one word, without `_` or `-` separators. Although there are some DOM events that don't match this pattern ("DOMContentLoaded" comes to mind), almost all modern events do, so you'll be more consistent that way. You're also slightly less likely to run into framework compatibility issues.
+
+Since events are not retroactively dispatched when a listener is added (i.e., if you register a listener after the "load" event has already fired, you're out of luck), you shouldn't rely on them to get the actual state of a component. Instead, a good strategy is to have properties on the element that reflect its current state, and to dispatch events when those change. Developers should then check the component for specifics, not the event. 
+
+It's up to you how closely you want to stick to existing DOM patterns for those flag properties, since some can be a little cryptic, but try to stick with existing behavior if you use a common property name (e.g., the boolean `complete` on image elements or the enumerated `readyState` on media tags).
+
+Events are a good mechanism for changes or notifications that could be repeated, or stages along a chain of asynchronous processes. If you're using an event to notify a developer about the result of an individual process, like a specific network fetch or a processed data buffer, consider using a Promise instead.
+
+@subhead Strength in layers
+
+There's no one best solution for talking to a custom element. Instead, a good component will use all four in concert to create a natural heirarchy of interaction:
+
+* Attributes set starting configuration and broad updates
+* Properties provide granular configuration and status
+* Methods trigger "actions" and act as a gate for expensive data access operations
+* Events notify other code about long-running processes and changes to element state
+
+This richness may seem fragmented if you're coming from a much more abstracted, "pure" framework like React, where all interactions tend to converge on "function references" over time. However, our goal is not purity &mdash; it's to emulate the parts of the DOM that are familiar and intuitive to web developers, while stepping around the parts that gave the DOM a bad reputation. Strike that balance, and you'll find that using your components, both in vanilla JavaScript and in framework code, is much more pleasant.

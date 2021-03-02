@@ -112,7 +112,7 @@ Working this way, where most of our element's code is actually initiated by sett
 
 One feature that can make your elements much more pleasant to use is to mirror attributes and properties. We often see this in the built-in elements: you can set an image to load from a file by either calling `img.src = "test.jpg"` or `img.setAttribute("src", "test.jpg")`. The "src" attribute is mirrored.
 
-My experience has been that it's much easier to reason about elements that treat their attributes as the source of truth, and use properties to access them. For example, our inline SVG method definition might look like this:
+My experience has been that it's much easier to reason about elements that &mdash; where attributes and properties are mirrored &mdash; treat their attributes as the source of truth, and use properties to access them. For example, our inline SVG method definition might look like this:
 
 @codeblock(js)...
 attributeChangedCallback(attr, was, value) {
@@ -135,5 +135,7 @@ set src(value) {
 In this case, accessing `element.src` will still trigger code flow through the `attributeChangedCallback()`, and the values we assign there will always be inspectable. We can augment the getter if we want, by having it return a `URL` object or a fully-qualified value, as many element "src" attributes do.
 
 It's also possible to go the other way &mdash; to treat properties getters/setters as the source of truth, and to make our `attributeChangedCallback()` a much shorter method that just calls those setters. However, this tends to be more verbose, and if you want the attributes in the DOM to reflect the property values, you'll need to be careful to avoid infinite loops.
+
+That said, attributes are limited in that they can only accept and return string values. If you need to be able to configure an element with a complex data structure, like an array or an object, consider <i>only</i> using a property getter/setter for that, and skipping the attribute entirely. Don't create attributes that accept something like JSON &mdash; the serialization cost is real, and your users will not thank you for that interface.
 
 If writing getters and setters for each attribute feels like a lot of work, don't worry: in the next chapter, we're going to automate this and other boilerplate by creating a base class.

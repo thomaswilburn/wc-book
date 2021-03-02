@@ -20,11 +20,11 @@
   {
     "section": "dp-intro",
     "chapters": [
-      "Attributes, events, and methods",
-      "dp-control",
+      "dp-apem",
       "Developing expressive DSLs",
       "Out of sight, out of mind",
-      "Framework integration"
+      "Framework integration",
+      "dp-control"
     ]
   },
   {
