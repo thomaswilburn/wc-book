@@ -177,3 +177,7 @@ th {
   background: #333;
   color: white;
 }
+
+th var {
+  background: none;
+}
