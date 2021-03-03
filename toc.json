@@ -21,7 +21,7 @@
     "section": "dp-intro",
     "chapters": [
       "dp-apem",
-      "Developing expressive DSLs",
+      "dp-dsl",
       "Out of sight, out of mind",
       "Framework integration",
       "dp-control"

@@ -1,0 +1,96 @@
+@metadata...
+title:Component microformats
+type:chapter
+summary:DOM-specific languages
+...metadata
+
+Attributes are useful, intuitive ways of setting up the default state of a component. But they have severe limitations: they only accept individual strings at a single level of depth. What if we wanted to keep the accessibility of config-through-HTML, but we wanted to be able to express more complex configuration &mdash; nested options, multiple values per parameter, and lists of keyed parameters?
+
+What we're effectively describing is a kind of <a href="https://en.wikipedia.org/wiki/Microformat">microformat</a>: a domain-specific language that's embedded in HTML. At one point, these were fashionable as a way to make pages more scrapeable &mdash; microformats were defined for contact information or geographic location data. They're rarely used now, but a version still survives as the meta tags used by Facebook, Slack, Twitter, and other services to "unfurl" preview descriptions.
+
+This pattern is also used inside of some modern HTML elements, like `<picture>`: developers can specify multiple `<source>` elements inside of a `<picture>`, each of which has its own URL and media query for consideration. `<video>` and `<audio>` tags offer something similar, a legacy of the days when cross-browser media support was much less consistent than it is today. And of course, it's common in XML-based embedded formats, like SVG.
+
+It's easy to design a component that uses this pattern badly. It's a bit more challenging to build it in order to support the kinds of ergonomics that users of your component expect, like live updates to the config elements and their attributes.
+
+For demonstration purposes, let's say that we're building a WebGL preview, and we want to be able to tweak the input parameters that the program uses to draw to the canvas. In WebGL, we call these parameters "uniforms," because they're constant across every pixel of the image (the other types of inputs are "attributes," which are assigned to each polygon vertex, and "varyings," which are blended across the polygon interior). Our final markup will look something like:
+
+@codeblock(html)...
+<shader-preview>
+  <shader-uniform name="u_color" values=".5,1,1"></shader-uniform>
+  <shader-uniform name="u_start" values="0"></shader-uniform>
+  <shader-uniform name="u_end" values="1"></shader-uniform>
+</shader-preview>
+...codeblock
+
+We're going to use `<shader-uniform>` as our parameter element, even though we won't define it, to keep it from conflicting with any built-in elements. The `<shader-preview>` is a replaced element with a shadow DOM, so we don't have to worry about them showing up on the page after it's defined, but it's good to remember that until our JavaScript runs, they can still be potentially visible.
+
+@sidebar...
+Don't worry about the implementation of exactly what this code does in WebGL. For the purposes of this demo, we're just interested in getting configuration data from the DOM.
+...sidebar
+
+First, we'll add an `updateFromChildren()` method to our component, which scans through its immediate children and creates a config object from them.
+
+@codeblock(js)...
+updateFromChildren() {
+  // get our component's child elements
+  var children = Array.from(this.children);
+  var uniformElements = children.filter(el => el.tagName == "SHADER-UNIFORM");
+  // collect values for updating
+  var uniforms = {};
+  for (var u of uniformElements) {
+    var name = u.getAttribute("name");
+    // convert "values" into an array of numbers
+    var values = u.getAttribute("values")
+      .split(/,\s*/)
+      .map(n => Number(n));
+    uniforms[name] = values;
+  }
+  this.setUniforms(uniforms);
+}
+...codeblock
+
+Next, we need to call `updateFromChildren()` when the element is connected, and whenever they may have changed. For the latter, we'll use a <a href="https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver">Mutation Observer</a> &mdash; a browser API that notifies us whenever the document is changed. We'll create the mutation observer in the constructor, and then tell it to monitor the DOM in the component's `connectedCallback()`.
+
+@codeblock(js)...
+constructor() {
+  super();
+
+  // MutationObserver takes a notification callback as an argument
+  this.observer = new MutationObserver(this.updateFromChildren);
+}
+
+connectedCallback() {
+  this.observer.observe(this, {
+    // watch immediate children and their attributes
+    childList: true,
+    attributes: true
+  });
+  updateFromChildren();
+}
+
+disconnectedCallback() {
+  // stop watching when this element is not in the document
+  this.observer.disconnect();
+}
+...codeblock
+
+With the mutation observer in place, our element is aware of any modifications to its children that relate to config, and will update itself to match. Our component will still need to understand the configuration data that's produced, and may need to cache the previous value for comparison, but that's a problem of API design, not components.
+
+@subhead Designing Component DSLs
+
+Microformats provide a succinct, easy-to-understand option for configuring a component. At The Seattle Times, our <a href="https://github.com/seattletimes/component-leaflet-map">`<leaflet-map>`</a> element used child elements to position a map and add markers to it, which was simple enough to be used by reporters with a little training. We also made some mistakes, in hindsight.
+
+One error was to use elements as wrappers for JSON configuration data. We allowed `<leaflet-map>` elements to contain `<geo-json>` and `<geo-style>` elements that were just wrappers for JSON strings. At the time, this seemed like a good idea &mdash; it was an easy way to dump geospatial data into an HTML template and get a map out of the other end. In practice, it was awkward and fragile: since the JSON was treated as plain text until our script loaded, the best case scenario was a huge blob of code in the middle of our copy. In the worst case, "helpful" browser features like Safari's automatic phone number identification would mangle the JSON and break the whole page.
+
+This example clarified that while you can use component children as complex configuration objects, it's not really ergonomic &mdash; anyone who has authored XML build files can tell you that. If you need to pass substantial amounts of data to a component, don't do it inline. Let users place it in a file and set a "src" attribute to load it from the network, or provide a method on the component to load it from JavaScript.
+
+On the other hand, one truly successful part of our map DSL was being able to easily specify multiple map layers and points of interest as child elements. Because elements provide an ordered list of values, we could stack tile layers on top of each other &mdash; putting streets on top of a topographical base, for example &mdash; just by writing a couple of tags. And `<map-marker>` made it easy to add popups with HTML content to the map.
+
+The lesson here is that when the format matches the structure of the data, or if it involves working with HTML content, the result is likely to be much more pleasant to use. Think in terms of multiple-choice lists or enumerations: if your configuration object has these as properties, they may be a good microformat.
+
+Finally, it's worth remembering that component microformats are really best used for replaced elements &mdash; those that have a shadow DOM, but no `<slot>` elements, so that your configuration tags won't show up for end users. Mixing light DOM and microformats will only lead to confusion. If your element has one or more `<slot>` elements to reveal its children, stick with configuration through attributes and properties.
+
+
+
+
+
