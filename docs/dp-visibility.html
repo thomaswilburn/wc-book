@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Visibility and Observation</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="dp-visibility chapter">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="dp-dsl.html"> &laquo; Component microformats</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="index.html"> Framework integration &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    Out of sight, out of mind
+  </aside>
+  <h1>Visibility and Observation</h1>
+<p>To be a developer is to be lazy, and to be a <i>good</i> developer is to teach a computer to be as lazy as you are.</p>
+<p>For certain types of application, the lifecycle callbacks offered by the custom element API &mdash; connection, disconnection, and attribute change &mdash; aren't sufficient. We don't just need to know if an element is present in the DOM, but also whether it is (potentially) visible, so we can do as little work as possible:</p>
+<ul>
+<li>For a media component, you may want to halt playback when the element leaves the viewport.</li>
+<li>Scroll-linked effects need to run only when users reach them.</li>
+<li>Graphics rendering components can halt running expensive shaders when they're not visible.</li>
+<li>Code using SVG methods like <var>getBBox()</var> will fail in many browsers if the tag in question is <var>display: none</var>.</li>
+</ul>
+<p>We can create lazy components using <a href="https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API">Intersection Observer</a>, an API that lets us know when an element enters an arbitrary rectangle (which is almost always the top-level browser viewport). Intersection Observers were created, at least in part, to handle ad loading and animation even when the "content" in question is nested one or more iframes deep. But it also tracks changes in visibility when an element is scrolled into view, or when it changes display state for any reason.</p>
+<p>For this example, let's continue with the idea of our WebGL shader preview element from the previous chapter. There's no reason to run a fragment shader when it's not visible, so we'll create an Intersection Observer in its constructor and pass in a component method to be notified. It's a lot like the Mutation Observer we used before.</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ShaderBox</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+
+    <span class="hljs-built_in">this</span>.observer = <span class="hljs-keyword">new</span> IntersectionObserver(<span class="hljs-built_in">this</span>.onIntersection.bind(<span class="hljs-built_in">this</span>));
+  }
+
+  <span class="hljs-function"><span class="hljs-title">connectedCallback</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">this</span>.observer.observe(<span class="hljs-built_in">this</span>);
+  }
+
+  <span class="hljs-function"><span class="hljs-title">disconnectedCallback</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">this</span>.observer.disconnect();
+  }
+}</pre></code>
+<p>Now, as long as our component is placed in a page, it'l be notified whenever it enters or leaves the viewport. If you want more granular notifications or advance warning, you can pass those as options to the <var>IntersectionObserver()</var> constructor:</p>
+<code class="language-js"><pre><span class="hljs-comment">// be notified when the element comes within 100px of the viewport</span>
+<span class="hljs-keyword">new</span> IntersectionObserver(callback, {
+  <span class="hljs-attr">rootMargin</span>: <span class="hljs-string">&quot;10px&quot;</span>
+});
+
+<span class="hljs-comment">// be notified as the element becomes more or less visible in steps of 20%</span>
+<span class="hljs-keyword">new</span> IntersectionObserver(callback, {
+  <span class="hljs-attr">thresholds</span>: [ <span class="hljs-number">0</span>, <span class="hljs-number">.2</span>, <span class="hljs-number">.4</span>, <span class="hljs-number">.6</span>, <span class="hljs-number">.8</span>, <span class="hljs-number">1</span> ]
+});</pre></code>
+<p>However, for most purposes, we don't need these extra options.</p>
+<p>The callback function for an Intersection Observer is normally given an array of intersection records, one for each element that it's watching. Since this observer only ever watches our component, we can go ahead and destructure that in the method arguments, then check the <var>isIntersecting</var> property to test for visibility:</p>
+<code class="language-js"><pre><span class="hljs-function"><span class="hljs-title">isIntersecting</span>(<span class="hljs-params">[e]</span>)</span> {
+  <span class="hljs-built_in">this</span>.visible = e.isIntersecting;
+  <span class="hljs-built_in">this</span>.tick();
+}
+
+<span class="hljs-function"><span class="hljs-title">tick</span>(<span class="hljs-params"></span>)</span> {
+  <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.raf) cancelAnimationFrame(<span class="hljs-built_in">this</span>.raf);
+  <span class="hljs-built_in">this</span>.raf = <span class="hljs-literal">null</span>;
+  <span class="hljs-keyword">if</span> (!<span class="hljs-built_in">this</span>.visible) <span class="hljs-keyword">return</span>;
+  <span class="hljs-comment">// run WebGL code</span>
+  <span class="hljs-built_in">this</span>.render();
+  <span class="hljs-built_in">this</span>.raf = requestAnimationFrame(<span class="hljs-built_in">this</span>.tick.bind(<span class="hljs-built_in">this</span>));
+}</pre></code>
+<p>If the element is invisible for whatever reason &mdash; it's in a hidden DOM subtree, it's scrolled out of view, it's been animated out to the side &mdash; our <var>isIntersecting()</var> code will mark it as not visible, and the next tick will exit early, without doing any rendering or scheduling a new frame. However, the moment it enters the viewport, it'll be marked as visible and the animation loop will restart. Since we're only notified when the component is or isn't visible, and not for changes in partial visibility, our <var>tick()</var> will continue recursively scheduling itself until the component is again out of view.</p>
+<script>
+class ViewportWatcher extends HTMLElement {
+  constructor() {
+    super();
+    this.observer = new IntersectionObserver(this.onIntersection.bind(this));
+    this.attachShadow({ mode: "open" });
+    this.shadowRoot.innerHTML = `
+<style>
+:host {
+  display: block;
+}
+
+:host([hidden]) {
+  display: none;
+}
+</style>
+<slot></slot>
+    `;
+    this.firstSight = false;
+  }
+
+  connectedCallback() {
+    this.observer.observe(this);
+  }
+
+  disconnectedCallback() {
+    this.observer.disconnect();
+  }
+
+  onIntersection([e]) {
+    if (e.isIntersecting) {
+      this.firstSight = true;
+      console.log("Hello!");
+    } else if (this.firstSight) {
+      console.log("Be seeing you, friendo.");
+    }
+  }
+}
+customElements.define("viewport-watcher", ViewportWatcher);
+</script>
+<viewport-watcher>
+<p>Ironically, it's hard to demo lazy components that work this way, because if they're working correctly, the change only takes place when you can't see them. However, I've wrapped this paragraph in a <var>&lt;viewport-watcher&gt;</var> custom element, and if you open up the dev tools, you can watch it greet you on the console.</p>
+</viewport-watcher>
+<p>Try scrolling it in and out of view, or toggling the "hidden" attribute on the custom element to remove it from the rendering tree.</p>
+<p>Lazy components are good for performance. They're good for emulating the behavior of built-in elements. And they're good for the environment, if only in a small way: deferring work until it actually needs to be done means less power used, and less carbon emitted. Save the planet, be lazy.</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="dp-dsl.html"> &laquo; Component microformats</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="index.html"> Framework integration &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>

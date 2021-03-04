@@ -22,7 +22,7 @@
     "chapters": [
       "dp-apem",
       "dp-dsl",
-      "Out of sight, out of mind",
+      "dp-visibility",
       "Framework integration",
       "dp-control"
     ]
@@ -34,7 +34,6 @@
       "shader-box",
       "media-controls",
       "autocomplete-input",
-      "Radio",
       "2020 Primary Results"
     ]
   }

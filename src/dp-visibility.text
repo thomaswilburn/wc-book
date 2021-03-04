@@ -1,0 +1,127 @@
+@metadata...
+title: Visibility and Observation
+type: chapter
+summary: Out of sight, out of mind
+...metadata
+
+To be a developer is to be lazy, and to be a <i>good</i> developer is to teach a computer to be as lazy as you are.
+
+For certain types of application, the lifecycle callbacks offered by the custom element API &mdash; connection, disconnection, and attribute change &mdash; aren't sufficient. We don't just need to know if an element is present in the DOM, but also whether it is (potentially) visible, so we can do as little work as possible:
+
+* For a media component, you may want to halt playback when the element leaves the viewport.
+* Scroll-linked effects need to run only when users reach them.
+* Graphics rendering components can halt running expensive shaders when they're not visible.
+* Code using SVG methods like `getBBox()` will fail in many browsers if the tag in question is `display: none`.
+
+We can create lazy components using <a href="https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API">Intersection Observer</a>, an API that lets us know when an element enters an arbitrary rectangle (which is almost always the top-level browser viewport). Intersection Observers were created, at least in part, to handle ad loading and animation even when the "content" in question is nested one or more iframes deep. But it also tracks changes in visibility when an element is scrolled into view, or when it changes display state for any reason.
+
+For this example, let's continue with the idea of our WebGL shader preview element from the previous chapter. There's no reason to run a fragment shader when it's not visible, so we'll create an Intersection Observer in its constructor and pass in a component method to be notified. It's a lot like the Mutation Observer we used before.
+
+@codeblock(js)...
+class ShaderBox extends HTMLElement {
+  constructor() {
+    super();
+
+    this.observer = new IntersectionObserver(this.onIntersection.bind(this));
+  }
+
+  connectedCallback() {
+    this.observer.observe(this);
+  }
+
+  disconnectedCallback() {
+    this.observer.disconnect();
+  }
+}
+...codeblock
+
+Now, as long as our component is placed in a page, it'l be notified whenever it enters or leaves the viewport. If you want more granular notifications or advance warning, you can pass those as options to the `IntersectionObserver()` constructor:
+
+@codeblock(js)...
+// be notified when the element comes within 100px of the viewport
+new IntersectionObserver(callback, {
+  rootMargin: "10px"
+});
+
+// be notified as the element becomes more or less visible in steps of 20%
+new IntersectionObserver(callback, {
+  thresholds: [ 0, .2, .4, .6, .8, 1 ]
+});
+...codeblock
+
+However, for most purposes, we don't need these extra options.
+
+The callback function for an Intersection Observer is normally given an array of intersection records, one for each element that it's watching. Since this observer only ever watches our component, we can go ahead and destructure that in the method arguments, then check the `isIntersecting` property to test for visibility:
+
+@codeblock(js)...
+isIntersecting([e]) {
+  this.visible = e.isIntersecting;
+  this.tick();
+}
+
+tick() {
+  if (this.raf) cancelAnimationFrame(this.raf);
+  this.raf = null;
+  if (!this.visible) return;
+  // run WebGL code
+  this.render();
+  this.raf = requestAnimationFrame(this.tick.bind(this));
+}
+...codeblock
+
+If the element is invisible for whatever reason &mdash; it's in a hidden DOM subtree, it's scrolled out of view, it's been animated out to the side &mdash; our `isIntersecting()` code will mark it as not visible, and the next tick will exit early, without doing any rendering or scheduling a new frame. However, the moment it enters the viewport, it'll be marked as visible and the animation loop will restart. Since we're only notified when the component is or isn't visible, and not for changes in partial visibility, our `tick()` will continue recursively scheduling itself until the component is again out of view.
+
+
+@html...
+<script>
+class ViewportWatcher extends HTMLElement {
+  constructor() {
+    super();
+    this.observer = new IntersectionObserver(this.onIntersection.bind(this));
+    this.attachShadow({ mode: "open" });
+    this.shadowRoot.innerHTML = `
+<style>
+:host {
+  display: block;
+}
+
+:host([hidden]) {
+  display: none;
+}
+</style>
+<slot></slot>
+    `;
+    this.firstSight = false;
+  }
+
+  connectedCallback() {
+    this.observer.observe(this);
+  }
+
+  disconnectedCallback() {
+    this.observer.disconnect();
+  }
+
+  onIntersection([e]) {
+    if (e.isIntersecting) {
+      this.firstSight = true;
+      console.log("Hello!");
+    } else if (this.firstSight) {
+      console.log("Be seeing you, friendo.");
+    }
+  }
+}
+customElements.define("viewport-watcher", ViewportWatcher);
+</script>
+<viewport-watcher>
+...html
+
+Ironically, it's hard to demo lazy components that work this way, because if they're working correctly, the change only takes place when you can't see them. However, I've wrapped this paragraph in a `<viewport-watcher>` custom element, and if you open up the dev tools, you can watch it greet you on the console.
+
+@html...
+</viewport-watcher>
+...html
+
+Try scrolling it in and out of view, or toggling the "hidden" attribute on the custom element to remove it from the rendering tree.
+
+Lazy components are good for performance. They're good for emulating the behavior of built-in elements. And they're good for the environment, if only in a small way: deferring work until it actually needs to be done means less power used, and less carbon emitted. Save the planet, be lazy.
