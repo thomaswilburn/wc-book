@@ -82,9 +82,29 @@ Microformats provide a succinct, easy-to-understand option for configuring a com
 
 One error was to use elements as wrappers for JSON configuration data. We allowed `<leaflet-map>` elements to contain `<geo-json>` and `<geo-style>` elements that were just wrappers for JSON strings. At the time, this seemed like a good idea &mdash; it was an easy way to dump geospatial data into an HTML template and get a map out of the other end. In practice, it was awkward and fragile: since the JSON was treated as plain text until our script loaded, the best case scenario was a huge blob of code in the middle of our copy. In the worst case, "helpful" browser features like Safari's automatic phone number identification would mangle the JSON and break the whole page.
 
-This example clarified that while you can use component children as complex configuration objects, it's not really ergonomic &mdash; anyone who has authored XML build files can tell you that. If you need to pass substantial amounts of data to a component, don't do it inline. Let users place it in a file and set a "src" attribute to load it from the network, or provide a method on the component to load it from JavaScript.
+@codeblock(html)...
+<leaflet-map>
+  <!-- don't do this -->
+  <geo-style>
+{ "fillOpacity": .5, "stroke": "black" }
+  </geo-style>
+</leaflet-map>
+...codeblock
+
+This example clarified that while you can use component children as complex configuration objects, it's not really ergonomic &mdash; anyone who has authored XML build files can tell you that. If you need to pass substantial amounts of data to a component, don't do it inline. Let users place it in a file and set a "src" attribute to load it from the network, or provide a method on the component to load it from JavaScript. Nobody will thank you for having them type JSON into an HTML document.
 
 On the other hand, one truly successful part of our map DSL was being able to easily specify multiple map layers and points of interest as child elements. Because elements provide an ordered list of values, we could stack tile layers on top of each other &mdash; putting streets on top of a topographical base, for example &mdash; just by writing a couple of tags. And `<map-marker>` made it easy to add popups with HTML content to the map.
+
+@codeblock(html)...
+<leaflet-map>
+  <!-- this pattern works -->
+  <tile-layer layer="esriTopographic"></tile-layer>
+  <tile-layer layer="esriStreets"></tile-layer>
+  <map-marker lat="44" long="-122">
+This will be rendered when the user taps the marker icon.
+  </map-marker>
+</leaflet-map>
+...codeblock
 
 The lesson here is that when the format matches the structure of the data, or if it involves working with HTML content, the result is likely to be much more pleasant to use. Think in terms of multiple-choice lists or enumerations: if your configuration object has these as properties, they may be a good microformat.
 
