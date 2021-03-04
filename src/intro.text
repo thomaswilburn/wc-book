@@ -1,6 +1,6 @@
 @metadata...
-title:Introduction
-type:intermission
+title: Introduction
+type: intermission
 ...metadata
 
 I first started using custom elements in 2013, working at ArenaNet in Bellevue, WA. A member of the team was working on the in-game commerce UI for <i>Guild Wars 2</i>, and he took advantage of a Chromium upgrade to create new tags that integrated into the hooks our engine programmers had added. For example, an inventory icon was automatically registered for native UI popups from the game engine, without needing to initialize the view or track its location.

@@ -1,7 +1,7 @@
 @metadata...
-title:The custom element lifecycle
-type:chapter
-summary:Connecting, disconnecting, and reacting
+title: The custom element lifecycle
+type: chapter
+summary: Connecting, disconnecting, and reacting
 ...metadata
 
 In the last chapter, we learned that a custom element isn't allowed to manipulate its DOM in the constructor. That work is meant to be deferred to the lifecycle callbacks, which let us know when our element has been attached to the document, which it is removed, and when its attributes are changed. These are just methods that we define in our class, like so:

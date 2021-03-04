@@ -1,7 +1,7 @@
 @metadata...
-title:Slots
-type:chapter
-summary:Bringing shadow DOM back to the light
+title: Slots
+type: chapter
+summary: Bringing shadow DOM back to the light
 ...metadata
 
 By now we're starting to see why shadow DOM is a mixed blessing. Isolation from the styles and scripts of the larger page is incredibly powerful for building reusable widgets, but we also lose the ability to share styles if we want to, and anything that crosses the shadow DOM boundary (such as focus or event propagation) becomes more cumbersome. Shadow DOM also hides child elements, which implies it can only be used as a leaf node of the document tree, not as a container for other markup.

@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>CSS and Theming</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="sd-css chapter">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="sd-slots.html"> &laquo; Slots</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="dp-intro.html"> Platform design patterns &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    Variables, selectors, and hosts
+  </aside>
+  <h1>CSS and Theming</h1>
+<p>So far, in discussions about shadow DOM and components, we've focused on the isolation that it creates for styles. We know that we can put an inline stylesheet in the top of our shadow root, and the only properties that will pass between shadow and light (or vice versa) are inherited properties. But complete isolation is in many ways as bad as no isolation &mdash; otherwise, we'd build everything in iframes. Ideally, we want to be able to poke some holes through the isolation in both directions, so that we can offer options for theming our components, and control the element itself without requiring users to load a second stylesheet.</p>
+<p>Our portal for breaking through the boundary is the <var>:host</var> pseudo-class, which can be used from inside the shadow DOM to refer to the host element itself.</p>
+<code class="language-css"><pre><span class="hljs-comment">/* selects the host element itself */</span>
+<span class="hljs-selector-pseudo">:host</span> {
+  <span class="hljs-comment">/* custom elements start display: inline, which is awkward
+     it&#x27;s a good practice to make them block to start,
+     then nest other layout elements like flex/grid inside */</span>
+  <span class="hljs-attribute">display</span>: block;
+}</pre></code>
+<p><var>:host</var> can also be used with parentheses to select shadow elements based on a rule for the host. For example, we might show controls on a media element only if the matching attribute is present:</p>
+<code class="language-css"><pre><span class="hljs-selector-class">.controls-container</span> {
+  <span class="hljs-attribute">display</span>: none;
+}
+
+<span class="hljs-selector-pseudo">:host</span>(<span class="hljs-selector-attr">[controls]</span>) <span class="hljs-selector-class">.controls-container</span> {
+  <span class="hljs-attribute">display</span>: block;
+}</pre></code>
+<p>The important thing about the host selector is that it's extremely low specificity &mdash; like user-agent styles, they're easy to override. We can use this to set the default styling for our tag without requiring developers to add a lot of <var>!important</var> to the outer styles. But we can also use it to set CSS variables for the styles in our shadow DOM.</p>
+<code class="language-css"><pre><span class="hljs-selector-pseudo">:host</span> {
+  --<span class="hljs-attribute">background</span>: white;
+  --<span class="hljs-attribute">color</span>: blue;
+}
+
+<span class="hljs-comment">/* buttons will be colored accordingly */</span>
+<span class="hljs-selector-tag">button</span> {
+  <span class="hljs-attribute">background</span>: <span class="hljs-built_in">var</span>(--background);
+  <span class="hljs-attribute">color</span>: <span class="hljs-built_in">var</span>(--color);
+}</pre></code>
+<p>Using the <var>:host()</var> form lets us set colors based on component attributes. We used this a lot during the 2020 election at NPR, since it let us theme our embeds to match our liveblog header (light text on a dark background) or station sites using the same embed (dark text on a white background).</p>
+<code class="language-css"><pre><span class="hljs-comment">/* this inverts our theme if our element has a &quot;dark&quot; attribute */</span>
+<span class="hljs-selector-pseudo">:host</span>(<span class="hljs-selector-attr">[dark]</span>) {
+  --<span class="hljs-attribute">background</span>: blue;
+  --<span class="hljs-attribute">color</span>: white;
+}</pre></code>
+<p>But here's the real trick: CSS variables are actually inherited properties, just like <var>font-family</var> or <var>color</var>. The <var>:host</var> is enough to assign them for the inside of the component, but styles set with even the smallest specificity outside will easily overcome that rule. The easiest way to do this is to write rules for our custom element's tag name in the outer stylesheet:</p>
+<code class="language-css"><pre>custom-element {
+  --<span class="hljs-attribute">background</span>: red;
+  --<span class="hljs-attribute">color</span>: black;
+}</pre></code>
+<p>Effectively, this lets you poke specific holes in the shadow DOM boundary &mdash; obviously, you can use CSS variables to set colors for your UI, but you can also define values for layout and additional styling:</p>
+<ul>
+<li>set <var>grid-template-columns</var> to adjust the number of items in a table or grid layout</li>
+<li>adjust padding or margin</li>
+<li>reorder grid or flex items according to a user's preferences</li>
+<li>specify URLs to images for backgrounds or pseudoelements, giving some skinning capability without using <var>&lt;slot&gt;</var></li>
+<li>adjust the timing for animations, or disable them by setting <var>--animation-duration: 0</var></li>
+</ul>
+<p>Now, key to this is that, while a few CSS variables can do a surprising amount when combined with <var>calc()</var> (or <var>clamp()</var>, <var>min()</var>, <var>max()</var>, etc.), these are <i>very specific</i> adjustments that are made possible. Ultimately, that's a good thing, as it lets you choose which adjustments are safe to allow and which ones will break your component. But it does mean that these theming options must be very clearly documented and communicated to developers. If you're working on multiple components, it may be helpful to pick a namespace or a common set of variable names, to make them easy to remember or define across the page.</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="sd-slots.html"> &laquo; Slots</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="dp-intro.html"> Platform design patterns &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>

@@ -1,6 +1,6 @@
 @metadata...
-title:Platform design patterns
-type:section-intro
+title: Platform design patterns
+type: section-intro
 ...metadata
 
 Surprisingly &mdash; or perhaps not &mdash; the web does not have a single unified design plan for APIs and language features. It's the product of years of accretion, from different standards, opposing development teams, and changing capabilities. It's hard to imagine how anything happens, to be honest.

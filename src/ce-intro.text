@@ -1,6 +1,6 @@
 @metadata...
-title:Custom element fundamentals
-type:section-intro
+title: Custom element fundamentals
+type: section-intro
 ...metadata
 
 There's not a lot of agreement in the JavaScript framework world, but the one thing that everyone has largely taken for granted is that it's a Good Thing to be able to declare units of functionality &mdash; components &mdash; and then arrange them into HTML-ish markup. And for good reason: HTML is a clear and easy-to-understand language, and structuring your application this way tends to form a good abstraction over the actual page that the browser uses.

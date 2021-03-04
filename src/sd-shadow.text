@@ -1,7 +1,7 @@
 @metadata...
-title:Shadow DOM
-type:chapter
-summary:Who knows what lurks in the depths of the DOM?
+title: Shadow DOM
+type: chapter
+summary: Who knows what lurks in the depths of the DOM?
 ...metadata
 
 Before web components, UI libraries on the web were a leaky abstraction. They required users to include a stylesheet, carefully engineered so that it wouldn't interfere with other items on the page. To make sure their own styles wouldn't be affected by the page, these stylesheets had to ship an exhaustive and bulky list of extra rules, just in case. A UI element from jQuery or Bootstrap also touched the DOM in unpredictable ways &mdash; there was no easy way to exclude the internal markup of its widgets from your own document queries, or be sure that it wouldn't mutate other parts of the page to achieve its goals.

@@ -1,7 +1,7 @@
 @metadata...
-title:Using a base class
-type:chapter
-summary:Eliminating element boilerplate
+title: Using a base class
+type: chapter
+summary: Eliminating element boilerplate
 ...metadata
 
 In the chapter on element definition, I noted that in almost all cases, our elements must inherit from `HTMLElement`. However, there's no rule that we can't create an intermediate class that smooths over some of the rough edges of the custom element API. Indeed, this is essentially all that libraries like <a href="https://lit-element.polymer-project.org/">LitElement</a> do! 

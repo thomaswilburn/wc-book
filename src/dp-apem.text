@@ -1,7 +1,7 @@
 @metadata...
-title:Inputs and outputs
-type:chapter
-summary:Attributes, properties, events, and methods
+title: Inputs and outputs
+type: chapter
+summary: Attributes, properties, events, and methods
 ...metadata
 
 Once you have a web component in the page that does something more complex than a checkbox, how do you manage its inputs and outputs? Attributes can serve as a fine interface for primitive values, like strings and numbers, but they're less workable when we want to create complex, nested data bindings. How do we decide the interface of our element?

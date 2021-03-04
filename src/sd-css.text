@@ -1,0 +1,75 @@
+@metadata...
+title: CSS and Theming
+type: chapter
+summary: Variables, selectors, and hosts
+...metadata
+
+So far, in discussions about shadow DOM and components, we've focused on the isolation that it creates for styles. We know that we can put an inline stylesheet in the top of our shadow root, and the only properties that will pass between shadow and light (or vice versa) are inherited properties. But complete isolation is in many ways as bad as no isolation &mdash; otherwise, we'd build everything in iframes. Ideally, we want to be able to poke some holes through the isolation in both directions, so that we can offer options for theming our components, and control the element itself without requiring users to load a second stylesheet.
+
+Our portal for breaking through the boundary is the `:host` pseudo-class, which can be used from inside the shadow DOM to refer to the host element itself.
+
+@codeblock(css)...
+/* selects the host element itself */
+:host {
+  /* custom elements start display: inline, which is awkward
+     it's a good practice to make them block to start,
+     then nest other layout elements like flex/grid inside */
+  display: block;
+}
+...codeblock
+
+`:host` can also be used with parentheses to select shadow elements based on a rule for the host. For example, we might show controls on a media element only if the matching attribute is present:
+
+@codeblock(css)...
+.controls-container {
+  display: none;
+}
+
+:host([controls]) .controls-container {
+  display: block;
+}
+...codeblock
+
+The important thing about the host selector is that it's extremely low specificity &mdash; like user-agent styles, they're easy to override. We can use this to set the default styling for our tag without requiring developers to add a lot of `!important` to the outer styles. But we can also use it to set CSS variables for the styles in our shadow DOM.
+
+@codeblock(css)...
+:host {
+  --background: white;
+  --color: blue;
+}
+
+/* buttons will be colored accordingly */
+button {
+  background: var(--background);
+  color: var(--color);
+}
+...codeblock
+
+Using the `:host()` form lets us set colors based on component attributes. We used this a lot during the 2020 election at NPR, since it let us theme our embeds to match our liveblog header (light text on a dark background) or station sites using the same embed (dark text on a white background).
+
+@codeblock(css)...
+/* this inverts our theme if our element has a "dark" attribute */
+:host([dark]) {
+  --background: blue;
+  --color: white;
+}
+...codeblock
+
+But here's the real trick: CSS variables are actually inherited properties, just like `font-family` or `color`. The `:host` is enough to assign them for the inside of the component, but styles set with even the smallest specificity outside will easily overcome that rule. The easiest way to do this is to write rules for our custom element's tag name in the outer stylesheet:
+
+@codeblock(css)...
+custom-element {
+  --background: red;
+  --color: black;
+}
+...codeblock
+
+Effectively, this lets you poke specific holes in the shadow DOM boundary &mdash; obviously, you can use CSS variables to set colors for your UI, but you can also define values for layout and additional styling:
+
+* set `grid-template-columns` to adjust the number of items in a table or grid layout
+* adjust padding or margin
+* reorder grid or flex items according to a user's preferences
+* specify URLs to images for backgrounds or pseudoelements, giving some skinning capability without using `<slot>`
+* adjust the timing for animations, or disable them by setting `--animation-duration: 0`
+
+Now, key to this is that, while a few CSS variables can do a surprising amount when combined with `calc()` (or `clamp()`, `min()`, `max()`, etc.), these are <i>very specific</i> adjustments that are made possible. Ultimately, that's a good thing, as it lets you choose which adjustments are safe to allow and which ones will break your component. But it does mean that these theming options must be very clearly documented and communicated to developers. If you're working on multiple components, it may be helpful to pick a namespace or a common set of variable names, to make them easy to remember or define across the page.

@@ -1,7 +1,7 @@
 @metadata...
-title:Effective attributes
-type:chapter
-summary:Configuration and communication
+title: Effective attributes
+type: chapter
+summary: Configuration and communication
 ...metadata
 
 Attributes are what actually make elements interesting. It's the `href` that gives a link value, the `src` that makes images pop. That's true for custom elements as well, but the `attributeChangedCallback` also serves as a central switchboard for configuration and initialization. More than any other lifecycle method, using it effectively will determine how pleasant your element is to develop and to maintain.

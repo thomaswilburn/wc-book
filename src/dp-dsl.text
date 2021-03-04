@@ -1,7 +1,7 @@
 @metadata...
-title:Component microformats
-type:chapter
-summary:DOM-specific languages
+title: Component microformats
+type: chapter
+summary: DOM-specific languages
 ...metadata
 
 Attributes are useful, intuitive ways of setting up the default state of a component. But they have severe limitations: they only accept individual strings at a single level of depth. What if we wanted to keep the accessibility of config-through-HTML, but we wanted to be able to express more complex configuration &mdash; nested options, multiple values per parameter, and lists of keyed parameters?

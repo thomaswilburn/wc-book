@@ -1,7 +1,7 @@
 @metadata...
-title:Association and control
-type:chapter
-summary:"for" the win
+title: Association and control
+type: chapter
+summary: "for" the win
 ...metadata
 
 If you've worked with form elements before, you may be familiar with the way that labels can be associated with an input element using the "for" attribute:

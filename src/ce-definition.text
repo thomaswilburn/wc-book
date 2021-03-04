@@ -1,7 +1,7 @@
 @metadata...
-title:Defining your element
-type:chapter
-summary:Subclassing HTMLElement for fun and profit
+title: Defining your element
+type: chapter
+summary: Subclassing HTMLElement for fun and profit
 ...metadata
 
 Every custom element starts with a JavaScript class that extends `HTMLElement`. Here's a simple example that turns yellow when you click it:

@@ -1,6 +1,6 @@
 @metadata...
-title:Structuring components
-type:section-intro
+title: Structuring components
+type: section-intro
 ...metadata
 
 The <a href="https://infrequently.org/2012/04/bedrock/">bedrock motivation</a>, so to speak, for web components has been the idea of an extensible web &mdash; one where we have APIs that "explain" how the browser does something, and let us do the same thing. That doesn't sound like much, but think about how much effort, from jQuery forward, went into something as simple as "a select box that looks good." And typically those implementations are framework specific &mdash; your theme-able select box in React can't be easily re-used in Vue, and vice versa. 
