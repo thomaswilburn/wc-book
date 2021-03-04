@@ -6,7 +6,7 @@ summary: Variables, selectors, and hosts
 
 So far, in discussions about shadow DOM and components, we've focused on the isolation that it creates for styles. We know that we can put an inline stylesheet in the top of our shadow root, and the only properties that will pass between shadow and light (or vice versa) are inherited properties. But complete isolation is in many ways as bad as no isolation &mdash; otherwise, we'd build everything in iframes. Ideally, we want to be able to poke some holes through the isolation in both directions, so that we can offer options for theming our components, and control the element itself without requiring users to load a second stylesheet.
 
-Our portal for breaking through the boundary is the `:host` pseudo-class, which can be used from inside the shadow DOM to refer to the host element itself.
+Our portal for breaking through the boundary is the `:host` pseudo-class, which can be used from inside the shadow DOM to refer to the element that owns that shadow root.
 
 @codeblock(css)...
 /* selects the host element itself */
@@ -30,7 +30,7 @@ Our portal for breaking through the boundary is the `:host` pseudo-class, which 
 }
 ...codeblock
 
-The important thing about the host selector is that it's extremely low specificity &mdash; like user-agent styles, they're easy to override. We can use this to set the default styling for our tag without requiring developers to add a lot of `!important` to the outer styles. But we can also use it to set CSS variables for the styles in our shadow DOM.
+The important thing about the basic host selector is that it's extremely low specificity &mdash; like user-agent styles, they're easy to override. We can use this to set the default styling for our tag without requiring developers to add a lot of `!important` to the outer styles. But we can also use it to set CSS variables for the styles in our shadow DOM.
 
 @codeblock(css)...
 :host {
@@ -45,7 +45,7 @@ button {
 }
 ...codeblock
 
-Using the `:host()` form lets us set colors based on component attributes. We used this a lot during the 2020 election at NPR, since it let us theme our embeds to match our liveblog header (light text on a dark background) or station sites using the same embed (dark text on a white background).
+Using the `:host()` form lets us set colors based on component attributes. This is useful for creating on-off switches (like the "controls" example) or simple themes (like a force-toggle for dark mode).
 
 @codeblock(css)...
 /* this inverts our theme if our element has a "dark" attribute */

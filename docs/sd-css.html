@@ -22,7 +22,7 @@
   </aside>
   <h1>CSS and Theming</h1>
 <p>So far, in discussions about shadow DOM and components, we've focused on the isolation that it creates for styles. We know that we can put an inline stylesheet in the top of our shadow root, and the only properties that will pass between shadow and light (or vice versa) are inherited properties. But complete isolation is in many ways as bad as no isolation &mdash; otherwise, we'd build everything in iframes. Ideally, we want to be able to poke some holes through the isolation in both directions, so that we can offer options for theming our components, and control the element itself without requiring users to load a second stylesheet.</p>
-<p>Our portal for breaking through the boundary is the <var>:host</var> pseudo-class, which can be used from inside the shadow DOM to refer to the host element itself.</p>
+<p>Our portal for breaking through the boundary is the <var>:host</var> pseudo-class, which can be used from inside the shadow DOM to refer to the element that owns that shadow root.</p>
 <code class="language-css"><pre><span class="hljs-comment">/* selects the host element itself */</span>
 <span class="hljs-selector-pseudo">:host</span> {
   <span class="hljs-comment">/* custom elements start display: inline, which is awkward
@@ -38,7 +38,7 @@
 <span class="hljs-selector-pseudo">:host</span>(<span class="hljs-selector-attr">[controls]</span>) <span class="hljs-selector-class">.controls-container</span> {
   <span class="hljs-attribute">display</span>: block;
 }</pre></code>
-<p>The important thing about the host selector is that it's extremely low specificity &mdash; like user-agent styles, they're easy to override. We can use this to set the default styling for our tag without requiring developers to add a lot of <var>!important</var> to the outer styles. But we can also use it to set CSS variables for the styles in our shadow DOM.</p>
+<p>The important thing about the basic host selector is that it's extremely low specificity &mdash; like user-agent styles, they're easy to override. We can use this to set the default styling for our tag without requiring developers to add a lot of <var>!important</var> to the outer styles. But we can also use it to set CSS variables for the styles in our shadow DOM.</p>
 <code class="language-css"><pre><span class="hljs-selector-pseudo">:host</span> {
   --<span class="hljs-attribute">background</span>: white;
   --<span class="hljs-attribute">color</span>: blue;
@@ -49,7 +49,7 @@
   <span class="hljs-attribute">background</span>: <span class="hljs-built_in">var</span>(--background);
   <span class="hljs-attribute">color</span>: <span class="hljs-built_in">var</span>(--color);
 }</pre></code>
-<p>Using the <var>:host()</var> form lets us set colors based on component attributes. We used this a lot during the 2020 election at NPR, since it let us theme our embeds to match our liveblog header (light text on a dark background) or station sites using the same embed (dark text on a white background).</p>
+<p>Using the <var>:host()</var> form lets us set colors based on component attributes. This is useful for creating on-off switches (like the "controls" example) or simple themes (like a force-toggle for dark mode).</p>
 <code class="language-css"><pre><span class="hljs-comment">/* this inverts our theme if our element has a &quot;dark&quot; attribute */</span>
 <span class="hljs-selector-pseudo">:host</span>(<span class="hljs-selector-attr">[dark]</span>) {
   --<span class="hljs-attribute">background</span>: blue;
