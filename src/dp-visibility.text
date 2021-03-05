@@ -15,7 +15,7 @@ For certain types of application, the lifecycle callbacks offered by the custom 
 
 We can create lazy components using <a href="https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API">Intersection Observer</a>, an API that lets us know when an element enters an arbitrary rectangle (which is almost always the top-level browser viewport). Intersection Observers were created, at least in part, to handle ad loading and animation even when the "content" in question is nested one or more iframes deep. But it also tracks changes in visibility when an element is scrolled into view, or when it changes display state for any reason.
 
-For this example, let's continue with the idea of our WebGL shader preview element from the previous chapter. There's no reason to run a fragment shader when it's not visible, so we'll create an Intersection Observer in its constructor and pass in a component method to be notified. It's a lot like the Mutation Observer we used before.
+For this example, let's continue with the idea of our WebGL shader preview element from the previous chapter. There's no reason to run WebGL code when it's not visible, so we'll create an Intersection Observer in its constructor and pass in a component method to be notified. It's a lot like the Mutation Observer we used before.
 
 @codeblock(js)...
 class ShaderBox extends HTMLElement {
