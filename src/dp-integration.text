@@ -1,0 +1,96 @@
+@metadata...
+title: Frameworks and integration
+type: chapter
+summary: DOM-specific languages
+...metadata
+
+Although web components can be used to build a standalone application all on their own, they're missing several of the requirements that would usually be used to do so. There's no built-in library for managing state, templating HTML (the `<template>` tag is useful but laughably primitive), or handling client-side routing. Those problems weren't what the technology was originally created to solve.
+
+That doesn't mean web components are useless. They still serve as a good way to bundle chunks of functionality into a document, and they're usually smaller and faster than the library equivalent. But it does mean that if you're building something reasonably complex, you may find yourself mixing the two: web components for self-contained UI widgets, and framework code to contain and coordinate those components.
+
+Since most JavaScript frameworks have some sort of component model of their own, a good question is whether it's capable of using web components at all. Of course, since custom elements (especially well-written ones) look like regular DOM elements, most of them should be able to use them in the basic sense of "creating them and setting some attributes." However, Rob Dodson's <a href="https://custom-elements-everywhere.com/">Custom Elements Everywhere</a> grades real custom element compatibility on two sets of tests:
+
+* Can the framework set both properties and attributes, and is it able to set non-primitive values (objects and arrays) on the properties of a custom element?
+* Is the framework able to handle regular DOM events dispatched from a custom element, including those created with unexpected types from the `CustomElement` constructor?
+
+At the time of this writing, most frameworks handle these challenges just fine, with one unfortunate exception: React. It's perhaps not surprising that React &mdash; which prioritizes purity of abstraction over the messy world of the DOM &mdash; would require some extra work to handle custom elements, just as it often handles elements like `<video>` or `<canvas>` badly. But luckily, there are strategies to work around this, if you want to include a custom element in a React application (and given that the entire point of web components is to be a cross-framework solution for UI widgets, why wouldn't you?).
+
+@subhead React integration
+
+If your component only uses attributes, you're in luck: React handles this case by default. You can just set them from JSX as normal:
+
+@codeblock(jsx)...
+render() {
+  return <div>
+    <custom-element value={this.state.value}></custom-element>
+  </div>
+}
+...codeblock
+
+However, if you need to set a non-primitive value, or a property that isn't mirrored to an attribute, you'll need to use a callback ref to get access to the actual DOM element.
+
+@codeblock(jsx)...
+render() {
+  return <div>
+    <custom-element
+      ref={element => element && element.data = this.state.customElementData}
+    ></custom-element>
+  </div>
+}
+...codeblock
+
+In this code, when our custom element is added to the DOM, React will call our function and pass in the element to be updated. We need the `element &&` guard because the function may also be called with `null` when the element is unmounted.
+
+This is a frustrating pattern, but it becomes more so if our element dispatches DOM events to communicate about progress. Because React uses an entirely synthetic event system, we will need to use a ref to manually attach and remove event references. In this case, we'll need to create a more complex callback function, likely one that is attached to a class component:
+
+@codeblock(jsx)...
+class ReactHost extends React.Component {
+  constructor() {
+    super();
+    this.customElement = null;
+    this.onCustomEvent = this.onCustomEvent.bind(this);
+  }
+
+  onCustomEvent() {
+    // perform whatever we need to from the DOM event
+    this.setState({ customEventFired: true });
+  }
+
+  updateCustomElement(ref) {
+    if (ref) {
+      // store a reference for later
+      this.customElement = ref;
+      // set a property
+      ref.data = this.state.customElementData;
+      // add a DOM event listener
+      ref.addEventListener("custom", this.onCustomEvent);
+    } else {
+      // if ref is null, the element is going away
+      // clean up data and events
+      this.customElement.data = null;
+      this.customElement.removeEventListener("custom", this.onCustomEvent);
+      // nullify our stored reference
+      this.customElement = null;
+    }
+  }
+
+  render() {
+    return <div>
+      <custom-element ref={r => this.updateCustomElement(r)}></custom-element>
+    </div>
+  }
+}
+...codeblock
+
+This is not a great pattern, but it's usable. And I have hope &mdash; perhaps futile &mdash; that as web components become more common, React will have to become more flexible in the tools it offers for using the DOM, rather than keeping it at arm's length in this way.
+
+@subhead Writing web components via frameworks
+
+While we typically think of integrating custom elements into a framework, the opposite can also be true: you can use a framework to write the insides of a web component. While I personally would probably sooner add a library like <a href="https://lit-html.polymer-project.org/">Lit-HTML</a>, if you're already familiar with one of those frameworks, it's easy enough. Essentially, we can treat the shadow DOM as the mount point for our framework app, just as we would normally do with a `<main>` tag. For example, here's a simple Preact-based element that issues a greeting, updates from the element attributes, and passes click listeners through to the inner functional component:
+
+@includeCode(html) snippets/preact-component.html
+@include snippets/preact-component.html
+
+In some cases, frameworks will even offer tools for generating custom elements directly from your existing modules. Rather than use my own janky translation above, for example, Preact has <a href="https://github.com/preactjs/preact-custom-element/">`preact-custom-element`</a>, and Vue and Svelte offer <a href="https://github.com/vuejs/vue-web-component-wrapper">`vue-web-component-wrapper`</a> and a <a href="https://svelte.dev/docs#Custom_element_API">built-in compiler options</a>, respectively.
+
+

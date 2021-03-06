@@ -108,6 +108,19 @@ Working this way, where most of our element's code is actually initiated by sett
 * Don't assume that all attributes are set, and use sensible defaults for those that don't exist (yet).
 * Whenever possible, setting an attribute to a given value should always have the same result.
 
+One thing to watch out for is the creation of "boolean" attributes &mdash; those that are true just by virtue of existing on the element. For example, `<video>` tags support a "controls" attribute that shows the play button and progress bar. To our `attributeChangedCallback()`, these will show up with an empty string as their value, so a simple false-y test won't work. If you want to handle them correctly, you'll need to check against `null` instead.
+
+@codeblock(js)...
+attributeChangedCallback(attr, was, value) {
+  switch (attr) {
+    // set the property on the element based on the presence of the attribute
+    case "verbose":
+      this.verbose = value != null;
+    break;
+  }
+}
+...codeblock
+
 @subhead Mirroring attributes
 
 One feature that can make your elements much more pleasant to use is to mirror attributes and properties. We often see this in the built-in elements: you can set an image to load from a file by either calling `img.src = "test.jpg"` or `img.setAttribute("src", "test.jpg")`. The "src" attribute is mirrored.

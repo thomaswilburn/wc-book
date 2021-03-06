@@ -1,0 +1,59 @@
+<script type="module">
+  import { html, render, Component }
+    from 'https://unpkg.com/htm/preact/standalone.module.js'
+
+  function InnerComponent(props) {
+    return html`<button onClick=${props.clicked}>${props.greeting}</button>`;
+  }
+
+  class PreactElement extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: "open" });
+      this.shadowRoot.innerHTML = `
+<style>
+:host {
+  display: block;
+  margin: 20px;
+  border: 2px dotted red;
+}
+
+button {
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  padding: 20px;
+  background: white;
+  border: none;
+}
+</style>
+      `
+      this.render();
+    }
+
+    static get observedAttributes() {
+      return ["greeting"];
+    }
+
+    attributeChangedCallback(attr, was, value) {
+      switch (attr) {
+        case "greeting":
+          this.greeting = value;
+          this.render();
+        break;
+      }
+    }
+
+    render() {
+      var { greeting } = this;
+      render(html`<${InnerComponent}
+        greeting=${greeting}
+        clicked=${() => this.setAttribute("greeting", "Goodbye")}
+      />`, this.shadowRoot);
+    }
+  }
+
+  customElements.define("preact-element", PreactElement);
+</script>
+<preact-element greeting="Yo"></preact-element>
+

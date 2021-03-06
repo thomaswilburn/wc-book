@@ -1,0 +1,216 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Frameworks and integration</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="dp-integration chapter">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="dp-visibility.html"> &laquo; Visibility and Observation</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="dp-control.html"> Association and control &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    DOM-specific languages
+  </aside>
+  <h1>Frameworks and integration</h1>
+<p>Although web components can be used to build a standalone application all on their own, they're missing several of the requirements that would usually be used to do so. There's no built-in library for managing state, templating HTML (the <var>&lt;template&gt;</var> tag is useful but laughably primitive), or handling client-side routing. Those problems weren't what the technology was originally created to solve.</p>
+<p>That doesn't mean web components are useless. They still serve as a good way to bundle chunks of functionality into a document, and they're usually smaller and faster than the library equivalent. But it does mean that if you're building something reasonably complex, you may find yourself mixing the two: web components for self-contained UI widgets, and framework code to contain and coordinate those components.</p>
+<p>Since most JavaScript frameworks have some sort of component model of their own, a good question is whether it's capable of using web components at all. Of course, since custom elements (especially well-written ones) look like regular DOM elements, most of them should be able to use them in the basic sense of "creating them and setting some attributes." However, Rob Dodson's <a href="https://custom-elements-everywhere.com/">Custom Elements Everywhere</a> grades real custom element compatibility on two sets of tests:</p>
+<ul>
+<li>Can the framework set both properties and attributes, and is it able to set non-primitive values (objects and arrays) on the properties of a custom element?</li>
+<li>Is the framework able to handle regular DOM events dispatched from a custom element, including those created with unexpected types from the <var>CustomElement</var> constructor?</li>
+</ul>
+<p>At the time of this writing, most frameworks handle these challenges just fine, with one unfortunate exception: React. It's perhaps not surprising that React &mdash; which prioritizes purity of abstraction over the messy world of the DOM &mdash; would require some extra work to handle custom elements, just as it often handles elements like <var>&lt;video&gt;</var> or <var>&lt;canvas&gt;</var> badly. But luckily, there are strategies to work around this, if you want to include a custom element in a React application (and given that the entire point of web components is to be a cross-framework solution for UI widgets, why wouldn't you?).</p>
+<h2 id="react-integration">React integration</h2>
+<p>If your component only uses attributes, you're in luck: React handles this case by default. You can just set them from JSX as normal:</p>
+<code class="language-jsx"><pre><span class="hljs-function"><span class="hljs-title">render</span>(<span class="hljs-params"></span>)</span> {
+  <span class="hljs-keyword">return</span> <span class="xml"><span class="hljs-tag">&lt;<span class="hljs-name">div</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">custom-element</span> <span class="hljs-attr">value</span>=<span class="hljs-string">{this.state.value}</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">custom-element</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span></span>
+}</pre></code>
+<p>However, if you need to set a non-primitive value, or a property that isn't mirrored to an attribute, you'll need to use a callback ref to get access to the actual DOM element.</p>
+<code class="language-jsx"><pre><span class="hljs-function"><span class="hljs-title">render</span>(<span class="hljs-params"></span>)</span> {
+  <span class="hljs-keyword">return</span> <span class="xml"><span class="hljs-tag">&lt;<span class="hljs-name">div</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">custom-element</span>
+      <span class="hljs-attr">ref</span>=<span class="hljs-string">{element</span> =&gt;</span> element &amp;&amp; element.data = this.state.customElementData}
+    &gt;<span class="hljs-tag">&lt;/<span class="hljs-name">custom-element</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span></span>
+}</pre></code>
+<p>In this code, when our custom element is added to the DOM, React will call our function and pass in the element to be updated. We need the <var>element &amp;&amp;</var> guard because the function may also be called with <var>null</var> when the element is unmounted.</p>
+<p>This is a frustrating pattern, but it becomes more so if our element dispatches DOM events to communicate about progress. Because React uses an entirely synthetic event system, we will need to use a ref to manually attach and remove event references. In this case, we'll need to create a more complex callback function, likely one that is attached to a class component:</p>
+<code class="language-jsx"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ReactHost</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">React</span>.<span class="hljs-title">Component</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+    <span class="hljs-built_in">this</span>.customElement = <span class="hljs-literal">null</span>;
+    <span class="hljs-built_in">this</span>.onCustomEvent = <span class="hljs-built_in">this</span>.onCustomEvent.bind(<span class="hljs-built_in">this</span>);
+  }
+
+  <span class="hljs-function"><span class="hljs-title">onCustomEvent</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-comment">// perform whatever we need to from the DOM event</span>
+    <span class="hljs-built_in">this</span>.setState({ <span class="hljs-attr">customEventFired</span>: <span class="hljs-literal">true</span> });
+  }
+
+  <span class="hljs-function"><span class="hljs-title">updateCustomElement</span>(<span class="hljs-params">ref</span>)</span> {
+    <span class="hljs-keyword">if</span> (ref) {
+      <span class="hljs-comment">// store a reference for later</span>
+      <span class="hljs-built_in">this</span>.customElement = ref;
+      <span class="hljs-comment">// set a property</span>
+      ref.data = <span class="hljs-built_in">this</span>.state.customElementData;
+      <span class="hljs-comment">// add a DOM event listener</span>
+      ref.addEventListener(<span class="hljs-string">&quot;custom&quot;</span>, <span class="hljs-built_in">this</span>.onCustomEvent);
+    } <span class="hljs-keyword">else</span> {
+      <span class="hljs-comment">// if ref is null, the element is going away</span>
+      <span class="hljs-comment">// clean up data and events</span>
+      <span class="hljs-built_in">this</span>.customElement.data = <span class="hljs-literal">null</span>;
+      <span class="hljs-built_in">this</span>.customElement.removeEventListener(<span class="hljs-string">&quot;custom&quot;</span>, <span class="hljs-built_in">this</span>.onCustomEvent);
+      <span class="hljs-comment">// nullify our stored reference</span>
+      <span class="hljs-built_in">this</span>.customElement = <span class="hljs-literal">null</span>;
+    }
+  }
+
+  <span class="hljs-function"><span class="hljs-title">render</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-keyword">return</span> <span class="xml"><span class="hljs-tag">&lt;<span class="hljs-name">div</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-name">custom-element</span> <span class="hljs-attr">ref</span>=<span class="hljs-string">{r</span> =&gt;</span> this.updateCustomElement(r)}&gt;<span class="hljs-tag">&lt;/<span class="hljs-name">custom-element</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span></span>
+  }
+}</pre></code>
+<p>This is not a great pattern, but it's usable. And I have hope &mdash; perhaps futile &mdash; that as web components become more common, React will have to become more flexible in the tools it offers for using the DOM, rather than keeping it at arm's length in this way.</p>
+<h2 id="writing-web-components-via-frameworks">Writing web components via frameworks</h2>
+<p>While we typically think of integrating custom elements into a framework, the opposite can also be true: you can use a framework to write the insides of a web component. While I personally would probably sooner add a library like <a href="https://lit-html.polymer-project.org/">Lit-HTML</a>, if you're already familiar with one of those frameworks, it's easy enough. Essentially, we can treat the shadow DOM as the mount point for our framework app, just as we would normally do with a <var>&lt;main&gt;</var> tag. For example, here's a simple Preact-based element that issues a greeting, updates from the element attributes, and passes click listeners through to the inner functional component:</p>
+<code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">script</span> <span class="hljs-attr">type</span>=<span class="hljs-string">&quot;module&quot;</span>&gt;</span><span class="javascript">
+  <span class="hljs-keyword">import</span> { html, render, Component }
+    <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;https://unpkg.com/htm/preact/standalone.module.js&#x27;</span>
+
+  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">InnerComponent</span>(<span class="hljs-params">props</span>) </span>{
+    <span class="hljs-keyword">return</span> html`<span class="xml"><span class="hljs-tag">&lt;<span class="hljs-name">button</span> <span class="hljs-attr">onClick</span>=</span></span><span class="hljs-subst">${props.clicked}</span><span class="xml"><span class="hljs-tag">&gt;</span></span><span class="hljs-subst">${props.greeting}</span><span class="xml"><span class="hljs-tag">&lt;/<span class="hljs-name">button</span>&gt;</span>`</span>;
+  }
+
+  <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PreactElement</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+    <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+      <span class="hljs-built_in">super</span>();
+      <span class="hljs-built_in">this</span>.attachShadow({ <span class="hljs-attr">mode</span>: <span class="hljs-string">&quot;open&quot;</span> });
+      <span class="hljs-built_in">this</span>.shadowRoot.innerHTML = <span class="hljs-string">`
+&lt;style&gt;
+:host {
+  display: block;
+  margin: 20px;
+  border: 2px dotted red;
+}
+
+button {
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  padding: 20px;
+  background: white;
+  border: none;
+}
+&lt;/style&gt;
+      `</span>
+      <span class="hljs-built_in">this</span>.render();
+    }
+
+    <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">observedAttributes</span>() {
+      <span class="hljs-keyword">return</span> [<span class="hljs-string">&quot;greeting&quot;</span>];
+    }
+
+    <span class="hljs-function"><span class="hljs-title">attributeChangedCallback</span>(<span class="hljs-params">attr, was, value</span>)</span> {
+      <span class="hljs-keyword">switch</span> (attr) {
+        <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;greeting&quot;</span>:
+          <span class="hljs-built_in">this</span>.greeting = value;
+          <span class="hljs-built_in">this</span>.render();
+        <span class="hljs-keyword">break</span>;
+      }
+    }
+
+    <span class="hljs-function"><span class="hljs-title">render</span>(<span class="hljs-params"></span>)</span> {
+      <span class="hljs-keyword">var</span> { greeting } = <span class="hljs-built_in">this</span>;
+      render(html`<span class="xml">&lt;</span><span class="hljs-subst">${InnerComponent}</span><span class="xml">
+        greeting=</span><span class="hljs-subst">${greeting}</span><span class="xml">
+        clicked=</span><span class="hljs-subst">${() =&gt; <span class="hljs-built_in">this</span>.setAttribute(<span class="hljs-string">&quot;greeting&quot;</span>, <span class="hljs-string">&quot;Goodbye&quot;</span>)}</span><span class="xml">
+      /&gt;`</span>, <span class="hljs-built_in">this</span>.shadowRoot);
+    }
+  }
+
+  customElements.define(<span class="hljs-string">&quot;preact-element&quot;</span>, PreactElement);
+</span><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-name">preact-element</span> <span class="hljs-attr">greeting</span>=<span class="hljs-string">&quot;Yo&quot;</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">preact-element</span>&gt;</span></pre></code>
+<script type="module">
+  import { html, render, Component }
+    from 'https://unpkg.com/htm/preact/standalone.module.js'
+
+  function InnerComponent(props) {
+    return html`<button onClick=${props.clicked}>${props.greeting}</button>`;
+  }
+
+  class PreactElement extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: "open" });
+      this.shadowRoot.innerHTML = `
+<style>
+:host {
+  display: block;
+  margin: 20px;
+  border: 2px dotted red;
+}
+
+button {
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  padding: 20px;
+  background: white;
+  border: none;
+}
+</style>
+      `
+      this.render();
+    }
+
+    static get observedAttributes() {
+      return ["greeting"];
+    }
+
+    attributeChangedCallback(attr, was, value) {
+      switch (attr) {
+        case "greeting":
+          this.greeting = value;
+          this.render();
+        break;
+      }
+    }
+
+    render() {
+      var { greeting } = this;
+      render(html`<${InnerComponent}
+        greeting=${greeting}
+        clicked=${() => this.setAttribute("greeting", "Goodbye")}
+      />`, this.shadowRoot);
+    }
+  }
+
+  customElements.define("preact-element", PreactElement);
+</script>
+<preact-element greeting="Yo"></preact-element>
+
+
+<p>In some cases, frameworks will even offer tools for generating custom elements directly from your existing modules. Rather than use my own janky translation above, for example, Preact has <a href="https://github.com/preactjs/preact-custom-element/"><var>preact-custom-element</var></a>, and Vue and Svelte offer <a href="https://github.com/vuejs/vue-web-component-wrapper"><var>vue-web-component-wrapper</var></a> and a <a href="https://svelte.dev/docs#Custom_element_API">built-in compiler options</a>, respectively.</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="dp-visibility.html"> &laquo; Visibility and Observation</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="dp-control.html"> Association and control &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>

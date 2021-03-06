@@ -104,6 +104,15 @@
 <li>Don't assume that all attributes are set, and use sensible defaults for those that don't exist (yet).</li>
 <li>Whenever possible, setting an attribute to a given value should always have the same result.</li>
 </ul>
+<p>One thing to watch out for is the creation of "boolean" attributes &mdash; those that are true just by virtue of existing on the element. For example, <var>&lt;video&gt;</var> tags support a "controls" attribute that shows the play button and progress bar. To our <var>attributeChangedCallback()</var>, these will show up with an empty string as their value, so a simple false-y test won't work. If you want to handle them correctly, you'll need to check against <var>null</var> instead.</p>
+<code class="language-js"><pre><span class="hljs-function"><span class="hljs-title">attributeChangedCallback</span>(<span class="hljs-params">attr, was, value</span>)</span> {
+  <span class="hljs-keyword">switch</span> (attr) {
+    <span class="hljs-comment">// set the property on the element based on the presence of the attribute</span>
+    <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;verbose&quot;</span>:
+      <span class="hljs-built_in">this</span>.verbose = value != <span class="hljs-literal">null</span>;
+    <span class="hljs-keyword">break</span>;
+  }
+}</pre></code>
 <h2 id="mirroring-attributes">Mirroring attributes</h2>
 <p>One feature that can make your elements much more pleasant to use is to mirror attributes and properties. We often see this in the built-in elements: you can set an image to load from a file by either calling <var>img.src = "test.jpg"</var> or <var>img.setAttribute("src", "test.jpg")</var>. The "src" attribute is mirrored.</p>
 <p>My experience has been that it's much easier to reason about elements that &mdash; where attributes and properties are mirrored &mdash; treat their attributes as the source of truth, and use properties to access them. For example, our inline SVG method definition might look like this:</p>
