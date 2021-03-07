@@ -1,0 +1,698 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Autocomplete input</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="cs-autocomplete chapter">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="cs-custom-element.html"> &laquo; Custom element base class</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="index.html"> shader-box &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    
+  </aside>
+  <h1>Autocomplete input</h1>
+<h2 id="introduction">Introduction</h2>
+<p>The <var>&lt;datalist&gt;</var> element is one of those web platform features that filled a huge gap in the platform, and has not gotten anywhere near the attention that it deserves. It's a way of creating the middle ground between a select box and a regular text input: put <var>&lt;option&gt;</var> tags in a <var>&lt;datalist&gt;</var>, give it an ID, and then link it to the input by specifying the "list" attribute. Ta-da! You have an auto-complete text input that (theoretically) works everywhere.</p>
+<code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">input</span> <span class="hljs-attr">list</span>=<span class="hljs-string">&quot;marsupials&quot;</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-name">datalist</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;marsupials&quot;</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-name">option</span>&gt;</span>Wombat<span class="hljs-tag">&lt;/<span class="hljs-name">option</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-name">option</span>&gt;</span>Wallaby<span class="hljs-tag">&lt;/<span class="hljs-name">option</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-name">option</span>&gt;</span>Kangaroo<span class="hljs-tag">&lt;/<span class="hljs-name">option</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">datalist</span>&gt;</span></pre></code>
+<input list="marsupials">
+<datalist id="marsupials">
+  <option>Wombat</option>
+  <option>Wallaby</option>
+  <option>Kangaroo</option>
+</datalist>
+<p>Of course, one of the reasons that it probably hasn't gotten that attention is because the UI is platform-dependent, which is a fun way of saying "obtuse." For a graphic tracking hospitalization rates during the COVID pandemic, my team built a graphic using the <var>&lt;datalist&gt;</var> to populate US counties, but found that on iOS Safari (which shows the options as auto-suggest phrases above the keyboard) the stock UI was too subtle, and people were unable to use it effectively.</p>
+<p>This web component, then, is a single-file custom element that is a drop-in replacement that has a more traditional drop-down UI. You just swap out your <var>&lt;input&gt;</var> for an <var>&lt;autocomplete-input&gt;</var>, and it should just work. This component also goes to some pains to be accessible in screen readers, using ARIA to identify its markup accordingly. We've since used it on a few projects.</p>
+<h2 id="autocomplete-inputjs"><var>autocomplete-input.js</var></h2>
+<code class="language-js"><pre><span class="hljs-keyword">var</span> styles = <span class="hljs-string">`
+  :host {
+    position: relative;
+    display: block;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  input {
+    display: block;
+    width: 100%;
+  }
+
+  .dropdown {
+    position: absolute;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    max-height: 180px;
+    list-style-type: none;
+    z-index: 999;
+    overflow-y: auto;
+  }
+
+  .above .dropdown {
+    bottom: 100%;
+  }
+
+  .dropdown li {
+    padding: 2px 4px;
+    background: white;
+    border-bottom: 1px solid #DDD;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .dropdown .selected {
+    background: #DDD;
+  }
+`</span>;
+
+<span class="hljs-keyword">var</span> guid = <span class="hljs-number">0</span>;
+<span class="hljs-keyword">var</span> COMPOSED = { <span class="hljs-attr">composed</span>: <span class="hljs-literal">true</span>, <span class="hljs-attr">bubbles</span>: <span class="hljs-literal">true</span> };
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AutocompleteInput</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+    <span class="hljs-keyword">var</span> id = guid++;
+    <span class="hljs-built_in">this</span>.value = <span class="hljs-literal">null</span>;
+    <span class="hljs-built_in">this</span>.attachShadow({ <span class="hljs-attr">mode</span>: <span class="hljs-string">&quot;open&quot;</span> });
+    <span class="hljs-built_in">this</span>.cancelBlur = <span class="hljs-literal">false</span>;
+
+    <span class="hljs-keyword">var</span> autoBind = [
+      <span class="hljs-string">&quot;onMenuClick&quot;</span>,
+      <span class="hljs-string">&quot;onMenuTouch&quot;</span>,
+      <span class="hljs-string">&quot;onBlur&quot;</span>,
+      <span class="hljs-string">&quot;onInput&quot;</span>,
+      <span class="hljs-string">&quot;onKeyPress&quot;</span>,
+      <span class="hljs-string">&quot;onMutation&quot;</span>,
+      <span class="hljs-string">&quot;closeMenu&quot;</span>
+    ];
+    autoBind.forEach(<span class="hljs-function"><span class="hljs-params">f</span> =&gt;</span> <span class="hljs-built_in">this</span>[f] = <span class="hljs-built_in">this</span>[f].bind(<span class="hljs-built_in">this</span>));
+
+    <span class="hljs-comment">// add style</span>
+    <span class="hljs-keyword">var</span> style = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">&quot;style&quot;</span>);
+    style.innerHTML = styles;
+    <span class="hljs-built_in">this</span>.shadowRoot.appendChild(style);
+
+    <span class="hljs-built_in">this</span>.container = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">&quot;div&quot;</span>);
+    <span class="hljs-built_in">this</span>.shadowRoot.appendChild(<span class="hljs-built_in">this</span>.container);
+    <span class="hljs-built_in">this</span>.container.setAttribute(<span class="hljs-string">&quot;role&quot;</span>, <span class="hljs-string">&quot;combobox&quot;</span>);
+    <span class="hljs-built_in">this</span>.container.setAttribute(<span class="hljs-string">&quot;aria-haspopup&quot;</span>, <span class="hljs-string">&quot;listbox&quot;</span>);
+    <span class="hljs-built_in">this</span>.container.setAttribute(<span class="hljs-string">&quot;aria-owns&quot;</span>, <span class="hljs-string">`listbox-<span class="hljs-subst">${id}</span>`</span>);
+
+    <span class="hljs-built_in">this</span>.input = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">&quot;input&quot;</span>);
+    <span class="hljs-built_in">this</span>.input.setAttribute(<span class="hljs-string">&quot;aria-controls&quot;</span>, <span class="hljs-string">`listbox-<span class="hljs-subst">${id}</span>`</span>);
+    <span class="hljs-built_in">this</span>.input.setAttribute(<span class="hljs-string">&quot;aria-activedescendant&quot;</span>, <span class="hljs-string">&quot;&quot;</span>);
+    <span class="hljs-built_in">this</span>.container.appendChild(<span class="hljs-built_in">this</span>.input);
+
+    <span class="hljs-keyword">var</span> bounce = <span class="hljs-literal">null</span>;
+    <span class="hljs-comment">// debounce the inputs</span>
+    <span class="hljs-built_in">this</span>.input.addEventListener(<span class="hljs-string">&quot;input&quot;</span>, <span class="hljs-function"><span class="hljs-params">e</span> =&gt;</span> {
+      <span class="hljs-keyword">if</span> (bounce) {
+        <span class="hljs-built_in">clearTimeout</span>(bounce);
+      }
+      bounce = <span class="hljs-built_in">setTimeout</span>(<span class="hljs-function">() =&gt;</span> {
+        bounce = <span class="hljs-literal">null</span>;
+        <span class="hljs-built_in">this</span>.onInput();
+      }, <span class="hljs-number">150</span>);
+    });
+    <span class="hljs-comment">// don&#x27;t debounce arrow keys</span>
+    <span class="hljs-built_in">this</span>.input.addEventListener(<span class="hljs-string">&quot;keydown&quot;</span>, <span class="hljs-built_in">this</span>.onKeyPress);
+    <span class="hljs-built_in">this</span>.input.addEventListener(<span class="hljs-string">&quot;blur&quot;</span>, <span class="hljs-built_in">this</span>.onBlur);
+
+    <span class="hljs-built_in">this</span>.observer = <span class="hljs-keyword">new</span> MutationObserver(<span class="hljs-built_in">this</span>.onMutation);
+    <span class="hljs-built_in">this</span>.list = <span class="hljs-literal">null</span>;
+    <span class="hljs-built_in">this</span>.entries = [];
+    <span class="hljs-built_in">this</span>.selectedIndex = -<span class="hljs-number">1</span>;
+
+    <span class="hljs-built_in">this</span>.menuElement = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">&quot;ul&quot;</span>);
+    <span class="hljs-built_in">this</span>.menuElement.id = <span class="hljs-string">`listbox-<span class="hljs-subst">${id}</span>`</span>;
+    <span class="hljs-built_in">this</span>.menuElement.setAttribute(<span class="hljs-string">&quot;role&quot;</span>, <span class="hljs-string">&quot;listbox&quot;</span>);
+    <span class="hljs-built_in">this</span>.menuElement.classList.add(<span class="hljs-string">&quot;dropdown&quot;</span>);
+    <span class="hljs-built_in">this</span>.container.appendChild(<span class="hljs-built_in">this</span>.menuElement);
+    <span class="hljs-built_in">this</span>.menuElement.addEventListener(<span class="hljs-string">&quot;click&quot;</span>, <span class="hljs-built_in">this</span>.onMenuClick);
+    <span class="hljs-built_in">this</span>.menuElement.addEventListener(<span class="hljs-string">&quot;mousedown&quot;</span>, <span class="hljs-built_in">this</span>.onMenuTouch);
+    <span class="hljs-built_in">this</span>.menuElement.addEventListener(<span class="hljs-string">&quot;touchstart&quot;</span>, <span class="hljs-built_in">this</span>.onMenuTouch);
+  }
+
+  <span class="hljs-function"><span class="hljs-title">connectedCallback</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">document</span>.readyState != <span class="hljs-string">&quot;complete&quot;</span>) {
+      <span class="hljs-built_in">document</span>.addEventListener(<span class="hljs-string">&quot;load&quot;</span>, <span class="hljs-function">() =&gt;</span> {
+        <span class="hljs-keyword">var</span> id = <span class="hljs-built_in">this</span>.getAttribute(<span class="hljs-string">&quot;list&quot;</span>);
+        <span class="hljs-keyword">if</span> (!<span class="hljs-built_in">this</span>.list &amp;&amp; id) <span class="hljs-built_in">this</span>.attributeChangedCallback(<span class="hljs-string">&quot;list&quot;</span>, id, id);
+      });
+    }
+  }
+
+  <span class="hljs-comment">// reflect inner input value to the host component</span>
+  <span class="hljs-keyword">get</span> <span class="hljs-title">value</span>() {
+    <span class="hljs-keyword">return</span> <span class="hljs-built_in">this</span>.input ? <span class="hljs-built_in">this</span>.input.value : <span class="hljs-string">&quot;&quot;</span>;
+  }
+
+  <span class="hljs-keyword">set</span> <span class="hljs-title">value</span>(<span class="hljs-params">v</span>) {
+    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.input) {
+      <span class="hljs-keyword">var</span> updated = <span class="hljs-built_in">this</span>.input.value != v;
+      <span class="hljs-keyword">if</span> (updated) {
+        <span class="hljs-built_in">this</span>.input.value = v;
+        <span class="hljs-keyword">var</span> changeEvent = <span class="hljs-keyword">new</span> CustomEvent(<span class="hljs-string">&quot;change&quot;</span>, COMPOSED);
+        <span class="hljs-built_in">this</span>.dispatchEvent(changeEvent);
+      }
+    }
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">observedAttributes</span>() {
+    <span class="hljs-keyword">return</span> [
+      <span class="hljs-string">&quot;list&quot;</span>
+    ]
+  }
+
+  <span class="hljs-function"><span class="hljs-title">attributeChangedCallback</span>(<span class="hljs-params">attr, was, is</span>)</span> {
+    <span class="hljs-keyword">switch</span> (attr) {
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;list&quot;</span>:
+        <span class="hljs-comment">// un-observe the old list</span>
+        <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.list) {
+          <span class="hljs-built_in">this</span>.observer.disconnect();
+          <span class="hljs-built_in">this</span>.list = <span class="hljs-literal">null</span>;
+        }
+        <span class="hljs-comment">// find and monitor the list</span>
+        <span class="hljs-built_in">this</span>.list = <span class="hljs-built_in">document</span>.querySelector(<span class="hljs-string">&quot;#&quot;</span> + is);
+        <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.list) {
+          <span class="hljs-built_in">this</span>.observer.observe(<span class="hljs-built_in">this</span>.list, {
+            <span class="hljs-attr">childList</span>: <span class="hljs-literal">true</span>,
+            <span class="hljs-attr">characterData</span>: <span class="hljs-literal">true</span>
+          });
+          <span class="hljs-comment">// update with existing items</span>
+          <span class="hljs-built_in">this</span>.updateListEntries();
+        }
+        <span class="hljs-keyword">break</span>;
+
+    }
+  }
+
+  <span class="hljs-comment">// if &lt;datalist&gt; changes, update our internal representation</span>
+  <span class="hljs-function"><span class="hljs-title">onMutation</span>(<span class="hljs-params">e</span>)</span> {
+    <span class="hljs-built_in">this</span>.updateListEntries();
+  }
+
+  <span class="hljs-comment">// read the contents of the &lt;datalist&gt; and build an internal array of options</span>
+  <span class="hljs-function"><span class="hljs-title">updateListEntries</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-keyword">if</span> (!<span class="hljs-built_in">this</span>.list) <span class="hljs-keyword">return</span>;
+    <span class="hljs-built_in">this</span>.entries = <span class="hljs-built_in">Array</span>.from(<span class="hljs-built_in">this</span>.list.children).map(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">option, index</span>) </span>{
+      <span class="hljs-keyword">if</span> (!option.value) <span class="hljs-keyword">return</span>;
+      <span class="hljs-keyword">return</span> {
+        <span class="hljs-attr">value</span>: option.value,
+        <span class="hljs-attr">label</span>: option.innerHTML,
+        index
+      }
+    }).filter(<span class="hljs-function"><span class="hljs-params">v</span> =&gt;</span> v);
+  }
+
+  <span class="hljs-comment">// actually produce the menu when typing</span>
+  <span class="hljs-function"><span class="hljs-title">onInput</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-keyword">var</span> value = <span class="hljs-built_in">this</span>.input.value;
+    <span class="hljs-built_in">this</span>.menuElement.innerHTML = <span class="hljs-string">&quot;&quot;</span>;
+    <span class="hljs-keyword">if</span> (!value) <span class="hljs-keyword">return</span>;
+
+    <span class="hljs-comment">// filter the entries via a regex</span>
+    <span class="hljs-keyword">var</span> matcher = <span class="hljs-keyword">new</span> <span class="hljs-built_in">RegExp</span>(value, <span class="hljs-string">&quot;i&quot;</span>);
+    <span class="hljs-keyword">var</span> matching = <span class="hljs-built_in">this</span>.entries.filter(<span class="hljs-function"><span class="hljs-params">e</span> =&gt;</span> e.label.match(matcher));
+    <span class="hljs-keyword">if</span> (!matching.length) <span class="hljs-keyword">return</span>;
+
+    <span class="hljs-comment">// limit the matches</span>
+    matching = matching.slice(<span class="hljs-number">0</span>, <span class="hljs-number">100</span>);
+    <span class="hljs-keyword">var</span> found = matching.find(<span class="hljs-function"><span class="hljs-params">r</span> =&gt;</span> r.index == <span class="hljs-built_in">this</span>.selectedIndex);
+    <span class="hljs-keyword">if</span> (!found) <span class="hljs-built_in">this</span>.selectedIndex = matching[<span class="hljs-number">0</span>].index;
+    <span class="hljs-comment">// populate the dropdown with options</span>
+    <span class="hljs-keyword">var</span> listItems = matching.forEach(<span class="hljs-function"><span class="hljs-params">entry</span> =&gt;</span> {
+      <span class="hljs-keyword">var</span> li = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">&quot;li&quot;</span>);
+      li.dataset.index = entry.index;
+      li.dataset.value = entry.value;
+      li.innerHTML = entry.label;
+      li.setAttribute(<span class="hljs-string">&quot;role&quot;</span>, <span class="hljs-string">&quot;option&quot;</span>);
+      li.id = <span class="hljs-string">`list-<span class="hljs-subst">${guid}</span>-item-<span class="hljs-subst">${entry.index}</span>`</span>;
+      <span class="hljs-keyword">if</span> (entry.index == <span class="hljs-built_in">this</span>.selectedIndex) {
+        li.classList.add(<span class="hljs-string">&quot;selected&quot;</span>);
+        <span class="hljs-built_in">this</span>.input.setAttribute(<span class="hljs-string">&quot;aria-activedescendant&quot;</span>, li.id);
+      }
+      <span class="hljs-built_in">this</span>.menuElement.appendChild(li);
+    });
+    <span class="hljs-keyword">var</span> position = <span class="hljs-built_in">this</span>.input.getBoundingClientRect();
+    <span class="hljs-keyword">var</span> below = <span class="hljs-built_in">window</span>.innerHeight - position.bottom;
+    <span class="hljs-built_in">this</span>.container.classList.toggle(<span class="hljs-string">&quot;above&quot;</span>, below &lt; <span class="hljs-built_in">this</span>.menuElement.offsetHeight);
+    <span class="hljs-built_in">this</span>.container.setAttribute(<span class="hljs-string">&quot;aria-expanded&quot;</span>, <span class="hljs-string">&quot;true&quot;</span>);
+  }
+
+  <span class="hljs-comment">// handle arrow keys and enter/escape</span>
+  <span class="hljs-function"><span class="hljs-title">onKeyPress</span>(<span class="hljs-params">e</span>)</span> {
+    <span class="hljs-keyword">switch</span> (e.code) {
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;ArrowDown&quot;</span>:
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;ArrowUp&quot;</span>:
+        <span class="hljs-keyword">var</span> shift = e.code == <span class="hljs-string">&quot;ArrowDown&quot;</span> ? <span class="hljs-number">1</span> : -<span class="hljs-number">1</span>;
+        <span class="hljs-keyword">var</span> current = <span class="hljs-built_in">this</span>.menuElement.querySelector(<span class="hljs-string">&quot;.selected&quot;</span>);
+        <span class="hljs-keyword">var</span> newIndex;
+        <span class="hljs-keyword">if</span> (current) {
+          <span class="hljs-keyword">var</span> currentIndex = <span class="hljs-built_in">Array</span>.from(<span class="hljs-built_in">this</span>.menuElement.children).indexOf(current);
+          <span class="hljs-keyword">var</span> newIndex = (currentIndex + shift) % <span class="hljs-built_in">this</span>.menuElement.children.length;
+          <span class="hljs-keyword">if</span> (newIndex &lt; <span class="hljs-number">0</span>) newIndex = <span class="hljs-built_in">this</span>.menuElement.children.length + newIndex;
+          current.classList.remove(<span class="hljs-string">&quot;selected&quot;</span>);
+        } <span class="hljs-keyword">else</span> {
+          newIndex = shift == <span class="hljs-number">1</span> ? <span class="hljs-number">0</span> : <span class="hljs-built_in">this</span>.menuElement.children.length - <span class="hljs-number">1</span>;
+        }
+        <span class="hljs-keyword">var</span> li = <span class="hljs-built_in">this</span>.menuElement.children[newIndex];
+        <span class="hljs-keyword">if</span> (li) {
+          li.classList.add(<span class="hljs-string">&quot;selected&quot;</span>);
+          <span class="hljs-built_in">this</span>.input.setAttribute(<span class="hljs-string">&quot;aria-activedescendant&quot;</span>, li.id);
+          <span class="hljs-built_in">this</span>.selectedIndex = li.dataset.index;
+        }
+      <span class="hljs-keyword">break</span>;
+
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;Enter&quot;</span>:
+        <span class="hljs-keyword">var</span> chosen = <span class="hljs-built_in">this</span>.entries[<span class="hljs-built_in">this</span>.selectedIndex];
+        <span class="hljs-keyword">if</span> (!chosen) <span class="hljs-keyword">return</span>;
+        <span class="hljs-built_in">this</span>.setValue(chosen);
+      <span class="hljs-keyword">break</span>;
+
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;Escape&quot;</span>:
+        <span class="hljs-built_in">this</span>.input.value = <span class="hljs-string">&quot;&quot;</span>;
+        <span class="hljs-built_in">this</span>.closeMenu();
+      <span class="hljs-keyword">break</span>;
+    }
+  }
+
+  <span class="hljs-comment">// called when a menu item is clicked or user presses enter</span>
+  <span class="hljs-function"><span class="hljs-title">setValue</span>(<span class="hljs-params">entry</span>)</span> {
+    <span class="hljs-keyword">if</span> (entry) {
+      <span class="hljs-built_in">this</span>.input.value = entry.label;
+      <span class="hljs-built_in">this</span>.menuElement.innerHTML = <span class="hljs-string">&quot;&quot;</span>;
+      <span class="hljs-built_in">this</span>.value = <span class="hljs-built_in">this</span>.input.value;
+        <span class="hljs-keyword">var</span> changeEvent = <span class="hljs-keyword">new</span> CustomEvent(<span class="hljs-string">&quot;change&quot;</span>, COMPOSED);
+      <span class="hljs-built_in">this</span>.dispatchEvent(changeEvent);
+    } <span class="hljs-keyword">else</span> {
+      <span class="hljs-built_in">this</span>.input.value = <span class="hljs-string">&quot;&quot;</span>;
+    }
+    <span class="hljs-built_in">this</span>.closeMenu();
+  }
+
+  <span class="hljs-function"><span class="hljs-title">onMenuClick</span>(<span class="hljs-params">e</span>)</span> {
+    <span class="hljs-keyword">var</span> index = e.target.dataset.index;
+    <span class="hljs-keyword">if</span> (index == <span class="hljs-literal">null</span>) <span class="hljs-keyword">return</span>;
+    <span class="hljs-built_in">this</span>.menuElement.innerHTML = <span class="hljs-string">&quot;&quot;</span>;
+    <span class="hljs-built_in">this</span>.selectedIndex = index;
+    <span class="hljs-keyword">var</span> entry = <span class="hljs-built_in">this</span>.entries[index];
+    <span class="hljs-built_in">this</span>.setValue(entry);
+  }
+
+  <span class="hljs-function"><span class="hljs-title">onMenuTouch</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">this</span>.cancelBlur = <span class="hljs-literal">true</span>;
+  }
+
+  <span class="hljs-function"><span class="hljs-title">onBlur</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.cancelBlur) <span class="hljs-keyword">return</span>;
+    <span class="hljs-built_in">this</span>.closeMenu();
+  }
+
+  <span class="hljs-function"><span class="hljs-title">closeMenu</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">this</span>.menuElement.innerHTML = <span class="hljs-string">&quot;&quot;</span>;
+    <span class="hljs-built_in">this</span>.container.setAttribute(<span class="hljs-string">&quot;aria-expanded&quot;</span>, <span class="hljs-string">&quot;false&quot;</span>);
+    <span class="hljs-built_in">this</span>.input.setAttribute(<span class="hljs-string">&quot;aria-activedescendant&quot;</span>, <span class="hljs-string">&quot;&quot;</span>);
+    <span class="hljs-built_in">this</span>.cancelBlur = <span class="hljs-literal">false</span>;
+  }
+
+}</pre></code>
+<h2 id="demo">Demo</h2>
+<script>
+var styles = `
+  :host {
+    position: relative;
+    display: block;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  input {
+    display: block;
+    width: 100%;
+  }
+
+  .dropdown {
+    position: absolute;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    max-height: 180px;
+    list-style-type: none;
+    z-index: 999;
+    overflow-y: auto;
+  }
+
+  .above .dropdown {
+    bottom: 100%;
+  }
+
+  .dropdown li {
+    padding: 2px 4px;
+    background: white;
+    border-bottom: 1px solid #DDD;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .dropdown .selected {
+    background: #DDD;
+  }
+`;
+
+var guid = 0;
+var COMPOSED = { composed: true, bubbles: true };
+
+class AutocompleteInput extends HTMLElement {
+
+  constructor() {
+    super();
+    var id = guid++;
+    this.value = null;
+    this.attachShadow({ mode: "open" });
+    this.cancelBlur = false;
+
+    var autoBind = [
+      "onMenuClick",
+      "onMenuTouch",
+      "onBlur",
+      "onInput",
+      "onKeyPress",
+      "onMutation",
+      "closeMenu"
+    ];
+    autoBind.forEach(f => this[f] = this[f].bind(this));
+
+    // add style
+    var style = document.createElement("style");
+    style.innerHTML = styles;
+    this.shadowRoot.appendChild(style);
+
+    this.container = document.createElement("div");
+    this.shadowRoot.appendChild(this.container);
+    this.container.setAttribute("role", "combobox");
+    this.container.setAttribute("aria-haspopup", "listbox");
+    this.container.setAttribute("aria-owns", `listbox-${id}`);
+
+    this.input = document.createElement("input");
+    this.input.setAttribute("aria-controls", `listbox-${id}`);
+    this.input.setAttribute("aria-activedescendant", "");
+    this.container.appendChild(this.input);
+
+    var bounce = null;
+    // debounce the inputs
+    this.input.addEventListener("input", e => {
+      if (bounce) {
+        clearTimeout(bounce);
+      }
+      bounce = setTimeout(() => {
+        bounce = null;
+        this.onInput();
+      }, 150);
+    });
+    // don't debounce arrow keys
+    this.input.addEventListener("keydown", this.onKeyPress);
+    this.input.addEventListener("blur", this.onBlur);
+
+    this.observer = new MutationObserver(this.onMutation);
+    this.list = null;
+    this.entries = [];
+    this.selectedIndex = -1;
+
+    this.menuElement = document.createElement("ul");
+    this.menuElement.id = `listbox-${id}`;
+    this.menuElement.setAttribute("role", "listbox");
+    this.menuElement.classList.add("dropdown");
+    this.container.appendChild(this.menuElement);
+    this.menuElement.addEventListener("click", this.onMenuClick);
+    this.menuElement.addEventListener("mousedown", this.onMenuTouch);
+    this.menuElement.addEventListener("touchstart", this.onMenuTouch);
+  }
+
+  connectedCallback() {
+    if (document.readyState != "complete") {
+      document.addEventListener("load", () => {
+        var id = this.getAttribute("list");
+        if (!this.list && id) this.attributeChangedCallback("list", id, id);
+      });
+    }
+  }
+
+  // reflect inner input value to the host component
+  get value() {
+    return this.input ? this.input.value : "";
+  }
+
+  set value(v) {
+    if (this.input) {
+      var updated = this.input.value != v;
+      if (updated) {
+        this.input.value = v;
+        var changeEvent = new CustomEvent("change", COMPOSED);
+        this.dispatchEvent(changeEvent);
+      }
+    }
+  }
+
+  static get observedAttributes() {
+    return [
+      "list"
+    ]
+  }
+
+  attributeChangedCallback(attr, was, is) {
+    switch (attr) {
+      case "list":
+        // un-observe the old list
+        if (this.list) {
+          this.observer.disconnect();
+          this.list = null;
+        }
+        // find and monitor the list
+        this.list = document.querySelector("#" + is);
+        if (this.list) {
+          this.observer.observe(this.list, {
+            childList: true,
+            characterData: true
+          });
+          // update with existing items
+          this.updateListEntries();
+        }
+        break;
+
+    }
+  }
+
+  // if <datalist> changes, update our internal representation
+  onMutation(e) {
+    this.updateListEntries();
+  }
+
+  // read the contents of the <datalist> and build an internal array of options
+  updateListEntries() {
+    if (!this.list) return;
+    this.entries = Array.from(this.list.children).map(function(option, index) {
+      if (!option.value) return;
+      return {
+        value: option.value,
+        label: option.innerHTML,
+        index
+      }
+    }).filter(v => v);
+  }
+
+  // actually produce the menu when typing
+  onInput() {
+    var value = this.input.value;
+    this.menuElement.innerHTML = "";
+    if (!value) return;
+
+    // filter the entries via a regex
+    var matcher = new RegExp(value, "i");
+    var matching = this.entries.filter(e => e.label.match(matcher));
+    if (!matching.length) return;
+
+    // limit the matches
+    matching = matching.slice(0, 100);
+    var found = matching.find(r => r.index == this.selectedIndex);
+    if (!found) this.selectedIndex = matching[0].index;
+    // populate the dropdown with options
+    var listItems = matching.forEach(entry => {
+      var li = document.createElement("li");
+      li.dataset.index = entry.index;
+      li.dataset.value = entry.value;
+      li.innerHTML = entry.label;
+      li.setAttribute("role", "option");
+      li.id = `list-${guid}-item-${entry.index}`;
+      if (entry.index == this.selectedIndex) {
+        li.classList.add("selected");
+        this.input.setAttribute("aria-activedescendant", li.id);
+      }
+      this.menuElement.appendChild(li);
+    });
+    var position = this.input.getBoundingClientRect();
+    var below = window.innerHeight - position.bottom;
+    this.container.classList.toggle("above", below < this.menuElement.offsetHeight);
+    this.container.setAttribute("aria-expanded", "true");
+  }
+
+  // handle arrow keys and enter/escape
+  onKeyPress(e) {
+    switch (e.code) {
+      case "ArrowDown":
+      case "ArrowUp":
+        var shift = e.code == "ArrowDown" ? 1 : -1;
+        var current = this.menuElement.querySelector(".selected");
+        var newIndex;
+        if (current) {
+          var currentIndex = Array.from(this.menuElement.children).indexOf(current);
+          var newIndex = (currentIndex + shift) % this.menuElement.children.length;
+          if (newIndex < 0) newIndex = this.menuElement.children.length + newIndex;
+          current.classList.remove("selected");
+        } else {
+          newIndex = shift == 1 ? 0 : this.menuElement.children.length - 1;
+        }
+        var li = this.menuElement.children[newIndex];
+        if (li) {
+          li.classList.add("selected");
+          this.input.setAttribute("aria-activedescendant", li.id);
+          this.selectedIndex = li.dataset.index;
+        }
+      break;
+
+      case "Enter":
+        var chosen = this.entries[this.selectedIndex];
+        if (!chosen) return;
+        this.setValue(chosen);
+      break;
+
+      case "Escape":
+        this.input.value = "";
+        this.closeMenu();
+      break;
+    }
+  }
+
+  // called when a menu item is clicked or user presses enter
+  setValue(entry) {
+    if (entry) {
+      this.input.value = entry.label;
+      this.menuElement.innerHTML = "";
+      this.value = this.input.value;
+        var changeEvent = new CustomEvent("change", COMPOSED);
+      this.dispatchEvent(changeEvent);
+    } else {
+      this.input.value = "";
+    }
+    this.closeMenu();
+  }
+
+  onMenuClick(e) {
+    var index = e.target.dataset.index;
+    if (index == null) return;
+    this.menuElement.innerHTML = "";
+    this.selectedIndex = index;
+    var entry = this.entries[index];
+    this.setValue(entry);
+  }
+
+  onMenuTouch() {
+    this.cancelBlur = true;
+  }
+
+  onBlur() {
+    if (this.cancelBlur) return;
+    this.closeMenu();
+  }
+
+  closeMenu() {
+    this.menuElement.innerHTML = "";
+    this.container.setAttribute("aria-expanded", "false");
+    this.input.setAttribute("aria-activedescendant", "");
+    this.cancelBlur = false;
+  }
+
+}
+customElements.define("autocomplete-input", AutocompleteInput);
+</script>
+<datalist id="dinosaurs">
+  <option>T-Rex</option>
+  <option>Velociraptor</option>
+  <option>Stegosaurus</option>
+</datalist>
+<label>Type a dinosaur (options include: "T-Rex", "Velociraptor", or "Stegosaurus")</label>
+<div style="width: 200px">
+  <autocomplete-input id="demo-input" list="dinosaurs"></autocomplete-input>
+</div>
+<div class="output"></div>
+<script>
+var demo = document.querySelector("#demo-input");
+var output = document.querySelector(".output");
+demo.addEventListener("change", () => output.innerHTML = `Chosen: ${demo.value}`);
+</script>
+<h2 id="notes">Notes</h2>
+<h3>The constructor</h3>
+<p>Since this is meant to be easily copied into our graphics as-needed, this element doesn't use a separate base class. That means we spend a lot of time in the constructor manually creating DOM elements and adding them to the shadow root, then attaching event listeners to them. In the future, if we keep using this component, I will probably move this to a pattern more like my regular base class.</p>
+<p>We also create a Mutation Observer for later use &mdash; this will monitor the <var>&lt;datalist&gt;</var> element to keep track of our autocomplete options.</p>
+<h3><var>connectedCallback()</var></h3>
+<p>Generally, the JavaScript bundle that includes this element definition is at the end of the page, so we don't have to worry about the order of the <var>&lt;autocomplete-input&gt;</var> relative to its linked <var>&lt;datalist&gt;</var>. However, just in case this script was loaded early for some reason and it wasn't able to find the element by ID, we add an event listener in the <var>connectedCallback()</var> to try again when the document is fully loaded.</p>
+<p>For a more elaborate element, I'd probably use the association/control pattern from earlier in this book, where the component actually watches the document for the addition or removal of a specific ID. But again, this element is almost always used in a very small page, containing a single graphic embed. We can sacrifice a little robustness in that case.</p>
+<h3>The <var>value</var> getters and setters</h3>
+<p>As this is a drop-in replacement for <var>&lt;input&gt;</var>, we need to be able to proxy its value back out to the custom element itself. There's some additional logic in the setter to dispatch an event if the contents are different &mdash; since the input is in shadow, we can't rely on the normal propagation to get out.</p>
+<h3>Accessible dropdowns</h3>
+<p>Making an element like this accessible is harder than it should be, but ultimately not too hard to understand. Most of the hard work is in setting the correct roles and relationships for various elements.</p>
+<ul>
+<li>On the container, we set it with <var>role="combobox"</var> to be announced as a standard UI widget, adding <var>aria-haspopup="listbox"</var> and <var>aria-owns</var> with inner dropdown element ID.</li>
+<li>When the menu is open, we set <var>aria-expanded="true"</var> on the container.</li>
+<li>The dropdown itself is a <var>&lt;ul&gt;</var> tag with <var>role="listbox"</var> applied. The items inside are <var>&lt;li&gt;</var> tags with <var>role="option"</var> overriding their normal semantics and a unique ID for each.</li>
+<li>The input is a standard input, so it doesn't need a role, but we do set <var>aria-controls</var> to match the dropdown ID, so that the screenreader will know where to look. This attribute is not well-supported, but it's good to be comprehensive.</li>
+<li>Also on the input, we set <var>aria-activedescendant="XYZ"</var>, where "XYZ" is the ID of the currently-selected option in the dropdown. This is updated as a user types and when they use the arrow keys to move the selection up and down inside the menu.</li>
+</ul>
+<p>All of this guidance is taken from the <a href="https://www.w3.org/TR/wai-aria-practices/#combobox">WAI-ARIA authoring practices</a> and their related examples. I tested the code in NVDA and VoiceOver, which probably wasn't enough. It took a little while to get it all hooked up correctly, but ultimately it's not that much work, and it's gratifying to see and hear the component behave like a normal system UI widget.</p>
+<h3>Blur warning</h3>
+<p>One notable event being handled is the <var>onMenuTouch()</var> listener, which is called for "touchstart" and "mousedown" events on the menu element. All this does is set a <var>cancelBlur</var> flag property &mdash; so what's the point?</p>
+<p>During testing, we noticed that some people, very inconsistently, would find that tapping a menu item wouldn't correctly update the input value. Instead, the menu would vanish, but the half-typed value would stay in place and no "input" events would fire. Having cut corners on this kind of UI in the past, I suspected the culprit immediately: a kind of race condition in the event listeners.</p>
+<p>Basically, the problem is that our component handles two different events that can close a menu. One is clicking a menu item, but the other is clicking or tapping anywhere else on the page, which "blurs" the input (the opposite of focus). On my machine, and other browsers where the autocomplete worked correctly, the order looked like this:</p>
+<ul>
+<li><var>mousedown</var> on menu</li>
+<li><var>mouseup</var> on menu</li>
+<li><var>click</var> on menu</li>
+<li><var>blur</var> on input</li>
+</ul>
+<p>But in some browsers, the "blur" would fire directly after "mousedown", like this:</p>
+<ul>
+<li><var>mousedown</var> on menu</li>
+<li><var>blur</var> on input</li>
+<li>no other events fire, because the menu is now closed</li>
+</ul>
+<p>The sloppy way I had originally tried to fix it was to insert a timeout after the blur event, to give the click time to kick in. Like most hacks, this worked sometimes, but if (for whatever reason) the click took too long to fire, the blur would still win the race.</p>
+<p>I don't know which event order is <i>technically</i> correct, and ultimately it doesn't matter. But to fix it is relatively easy &mdash; enough that I should have just done it that way from the start. When the menu sees a "mousedown" event, it sets a flag so that the component can ignore any input "blur" that follows. Clicking outside on the rest of the page doesn't set that flag, so you can still tap elsewhere to close the menu, and we reset the flag each time the menu is opened to keep it from getting stuck.</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="cs-custom-element.html"> &laquo; Custom element base class</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="index.html"> shader-box &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>

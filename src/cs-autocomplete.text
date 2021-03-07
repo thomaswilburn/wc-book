@@ -1,0 +1,112 @@
+@metadata...
+title: Autocomplete input
+type: chapter
+...metadata
+
+@subhead Introduction
+
+The `<datalist>` element is one of those web platform features that filled a huge gap in the platform, and has not gotten anywhere near the attention that it deserves. It's a way of creating the middle ground between a select box and a regular text input: put `<option>` tags in a `<datalist>`, give it an ID, and then link it to the input by specifying the "list" attribute. Ta-da! You have an auto-complete text input that (theoretically) works everywhere.
+
+@codeblock(html)...
+<input list="marsupials">
+<datalist id="marsupials">
+  <option>Wombat</option>
+  <option>Wallaby</option>
+  <option>Kangaroo</option>
+</datalist>
+...codeblock
+
+@html...
+<input list="marsupials">
+<datalist id="marsupials">
+  <option>Wombat</option>
+  <option>Wallaby</option>
+  <option>Kangaroo</option>
+</datalist>
+...html
+
+Of course, one of the reasons that it probably hasn't gotten that attention is because the UI is platform-dependent, which is a fun way of saying "obtuse." For a graphic tracking hospitalization rates during the COVID pandemic, my team built a graphic using the `<datalist>` to populate US counties, but found that on iOS Safari (which shows the options as auto-suggest phrases above the keyboard) the stock UI was too subtle, and people were unable to use it effectively.
+
+This web component, then, is a single-file custom element that is a drop-in replacement that has a more traditional drop-down UI. You just swap out your `<input>` for an `<autocomplete-input>`, and it should just work. This component also goes to some pains to be accessible in screen readers, using ARIA to identify its markup accordingly. We've since used it on a few projects.
+
+@subhead `autocomplete-input.js`
+
+@includeCode(js) examples/autocomplete-input.js
+
+@subhead Demo
+
+@html <script>
+@include examples/autocomplete-input.js
+@html...
+customElements.define("autocomplete-input", AutocompleteInput);
+</script>
+<datalist id="dinosaurs">
+  <option>T-Rex</option>
+  <option>Velociraptor</option>
+  <option>Stegosaurus</option>
+</datalist>
+<label>Type a dinosaur (options include: "T-Rex", "Velociraptor", or "Stegosaurus")</label>
+<div style="width: 200px">
+  <autocomplete-input id="demo-input" list="dinosaurs"></autocomplete-input>
+</div>
+<div class="output"></div>
+<script>
+var demo = document.querySelector("#demo-input");
+var output = document.querySelector(".output");
+demo.addEventListener("change", () => output.innerHTML = `Chosen: ${demo.value}`);
+</script>
+...html
+
+@subhead Notes
+
+@subsubhead The constructor
+
+Since this is meant to be easily copied into our graphics as-needed, this element doesn't use a separate base class. That means we spend a lot of time in the constructor manually creating DOM elements and adding them to the shadow root, then attaching event listeners to them. In the future, if we keep using this component, I will probably move this to a pattern more like my regular base class.
+
+We also create a Mutation Observer for later use &mdash; this will monitor the `<datalist>` element to keep track of our autocomplete options.
+
+@subsubhead `connectedCallback()`
+
+Generally, the JavaScript bundle that includes this element definition is at the end of the page, so we don't have to worry about the order of the `<autocomplete-input>` relative to its linked `<datalist>`. However, just in case this script was loaded early for some reason and it wasn't able to find the element by ID, we add an event listener in the `connectedCallback()` to try again when the document is fully loaded.
+
+For a more elaborate element, I'd probably use the association/control pattern from earlier in this book, where the component actually watches the document for the addition or removal of a specific ID. But again, this element is almost always used in a very small page, containing a single graphic embed. We can sacrifice a little robustness in that case.
+
+@subsubhead The `value` getters and setters
+
+As this is a drop-in replacement for `<input>`, we need to be able to proxy its value back out to the custom element itself. There's some additional logic in the setter to dispatch an event if the contents are different &mdash; since the input is in shadow, we can't rely on the normal propagation to get out.
+
+@subsubhead Accessible dropdowns
+
+Making an element like this accessible is harder than it should be, but ultimately not too hard to understand. Most of the hard work is in setting the correct roles and relationships for various elements.
+
+* On the container, we set it with `role="combobox"` to be announced as a standard UI widget, adding `aria-haspopup="listbox"` and `aria-owns` with inner dropdown element ID.
+* When the menu is open, we set `aria-expanded="true"` on the container.
+* The dropdown itself is a `<ul>` tag with `role="listbox"` applied. The items inside are `<li>` tags with `role="option"` overriding their normal semantics and a unique ID for each.
+* The input is a standard input, so it doesn't need a role, but we do set `aria-controls` to match the dropdown ID, so that the screenreader will know where to look. This attribute is not well-supported, but it's good to be comprehensive.
+* Also on the input, we set `aria-activedescendant="XYZ"`, where "XYZ" is the ID of the currently-selected option in the dropdown. This is updated as a user types and when they use the arrow keys to move the selection up and down inside the menu.
+
+All of this guidance is taken from the <a href="https://www.w3.org/TR/wai-aria-practices/#combobox">WAI-ARIA authoring practices</a> and their related examples. I tested the code in NVDA and VoiceOver, which probably wasn't enough. It took a little while to get it all hooked up correctly, but ultimately it's not that much work, and it's gratifying to see and hear the component behave like a normal system UI widget.
+
+@subsubhead Blur warning
+
+One notable event being handled is the `onMenuTouch()` listener, which is called for "touchstart" and "mousedown" events on the menu element. All this does is set a `cancelBlur` flag property &mdash; so what's the point?
+
+During testing, we noticed that some people, very inconsistently, would find that tapping a menu item wouldn't correctly update the input value. Instead, the menu would vanish, but the half-typed value would stay in place and no "input" events would fire. Having cut corners on this kind of UI in the past, I suspected the culprit immediately: a kind of race condition in the event listeners.
+
+Basically, the problem is that our component handles two different events that can close a menu. One is clicking a menu item, but the other is clicking or tapping anywhere else on the page, which "blurs" the input (the opposite of focus). On my machine, and other browsers where the autocomplete worked correctly, the order looked like this:
+
+* `mousedown` on menu
+* `mouseup` on menu
+* `click` on menu
+* `blur` on input
+
+But in some browsers, the "blur" would fire directly after "mousedown", like this:
+
+* `mousedown` on menu
+* `blur` on input
+* no other events fire, because the menu is now closed
+
+The sloppy way I had originally tried to fix it was to insert a timeout after the blur event, to give the click time to kick in. Like most hacks, this worked sometimes, but if (for whatever reason) the click took too long to fire, the blur would still win the race.
+
+I don't know which event order is <i>technically</i> correct, and ultimately it doesn't matter. But to fix it is relatively easy &mdash; enough that I should have just done it that way from the start. When the menu sees a "mousedown" event, it sets a flag so that the component can ignore any input "blur" that follows. Clicking outside on the rest of the page doesn't set that flag, so you can still tap elsewhere to close the menu, and we reset the flag each time the menu is opened to keep it from getting stuck.
+

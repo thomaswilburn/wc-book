@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Custom element base class</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="cs-custom-element chapter">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="cs-intro.html"> &laquo; Case studies</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="cs-autocomplete.html"> Autocomplete input &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    
+  </aside>
+  <h1>Custom element base class</h1>
+<h2 id="introduction">Introduction</h2>
+<p>This base class should be familiar at this point &mdash; we've seen bits and pieces of it as we've worked through the text. It's a combination of various superclasses that I've used at NPR and in personal projects, and is intended to smooth off the rough parts of the custom element API: making it easier to declaratively bind methods to an instance, inject templating, and define an element.</p>
+<h2 id="customelementjs"><var>customElement.js</var></h2>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CustomElement</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+    <span class="hljs-comment">// new.target is the current constructor function</span>
+    <span class="hljs-keyword">var</span> def = <span class="hljs-keyword">new</span>.target;
+
+    <span class="hljs-comment">// if a shadow template is defined, inject it and find marked elements</span>
+    <span class="hljs-built_in">this</span>.shadowElements = {};
+    <span class="hljs-keyword">if</span> (def.shadowTemplate) {
+      <span class="hljs-built_in">this</span>.shadowRoot.innerHTML = def.template;
+      <span class="hljs-built_in">this</span>.shadowRoot.querySelectorAll(<span class="hljs-string">`[data-as]`</span>).forEach(<span class="hljs-function"><span class="hljs-params">el</span> =&gt;</span> {
+        <span class="hljs-keyword">var</span> name = el.dataset.as;
+        <span class="hljs-built_in">this</span>.shadowElements[name] = el;
+      });
+    }
+
+    <span class="hljs-comment">// bind methods for events to the current element</span>
+    <span class="hljs-keyword">if</span> (def.boundMethods) {
+      def.boundMethods.forEach(<span class="hljs-function"><span class="hljs-params">f</span> =&gt;</span> <span class="hljs-built_in">this</span>[f] = <span class="hljs-built_in">this</span>[f].bind(<span class="hljs-built_in">this</span>));
+    }
+
+    <span class="hljs-comment">// these properties will update their attributes</span>
+    <span class="hljs-keyword">if</span> (def.mirroredProps) {
+      def.mirroredProps.forEach(<span class="hljs-function"><span class="hljs-params">p</span> =&gt;</span> <span class="hljs-built_in">Object</span>.defineProperty(<span class="hljs-built_in">this</span>, p, {
+        <span class="hljs-function"><span class="hljs-title">get</span>(<span class="hljs-params"></span>)</span> { <span class="hljs-built_in">this</span>.getAttribute(p) },
+        <span class="hljs-function"><span class="hljs-title">set</span>(<span class="hljs-params">v</span>)</span> { <span class="hljs-built_in">this</span>.setAttribute(p, v); <span class="hljs-keyword">return</span> v; }
+      }));
+    }
+  }
+
+  <span class="hljs-comment">// send an event up the tree</span>
+  <span class="hljs-function"><span class="hljs-title">dispatch</span>(<span class="hljs-params">event, detail</span>)</span> {
+    <span class="hljs-keyword">var</span> e = <span class="hljs-keyword">new</span> CustomEvent(event, {
+      <span class="hljs-attr">bubbles</span>: <span class="hljs-literal">true</span>,
+      <span class="hljs-attr">composed</span>: <span class="hljs-literal">true</span>,
+      detail
+    });
+    <span class="hljs-built_in">this</span>.dispatchEvent(e);
+  }
+
+  <span class="hljs-comment">// looks for a static template getter on the class</span>
+  <span class="hljs-comment">// injects that HTML into the element&#x27;s light DOM</span>
+  <span class="hljs-comment">// returns a hash of &quot;data-as&quot; elements</span>
+  <span class="hljs-comment">// this is memoized and will only &quot;run&quot; once</span>
+  <span class="hljs-function"><span class="hljs-title">illuminate</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-comment">// get the light DOM template</span>
+    <span class="hljs-keyword">var</span> template = <span class="hljs-built_in">this</span>.constructor.lightTemplate;
+    <span class="hljs-comment">// inject into the node and query for marked elements</span>
+    <span class="hljs-built_in">this</span>.innerHTML = template;
+    <span class="hljs-keyword">var</span> manuscript = {};
+    <span class="hljs-keyword">var</span> landmarks = <span class="hljs-built_in">this</span>.querySelectorAll(<span class="hljs-string">&quot;[data-as]&quot;</span>);
+    <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> l <span class="hljs-keyword">of</span> landmarks) {
+      <span class="hljs-keyword">var</span> key = l.dataset.as;
+      manuscript[key] = l;
+    }
+    <span class="hljs-comment">// replace this method with a memoized version</span>
+    <span class="hljs-built_in">this</span>.illuminate = <span class="hljs-function">() =&gt;</span> manuscript;
+    <span class="hljs-comment">// return the elements lookup</span>
+    <span class="hljs-keyword">return</span> manuscript;
+  }
+
+  <span class="hljs-comment">// handle registration</span>
+  <span class="hljs-keyword">static</span> <span class="hljs-function"><span class="hljs-title">define</span>(<span class="hljs-params">tag</span>)</span> {
+    <span class="hljs-keyword">try</span> {
+      <span class="hljs-built_in">window</span>.customElements.define(tag, <span class="hljs-built_in">this</span>);
+    } <span class="hljs-keyword">catch</span> (err) {
+      <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Couldn&#x27;t (re)define <span class="hljs-subst">${tag}</span> element`</span>);
+    }
+  }
+}</pre></code>
+<h2 id="notes">Notes</h2>
+<h3>The constructor</h3>
+<p>As mentioned in earlier chapters, this constructor performs a few tasks via introspection on the class definition itself:</p>
+<ul>
+<li>It binds methods listed in the <var>boundMethods</var> static property to this specific instance, making it easier to add and remove event listeners and callbacks.</li>
+<li>It can attach and populate a shadow root, creating a lookup of marked elements on the <var>shadowElements</var> property so that you don't have to query for them later.</li>
+<li>Optionally, it creates getters/setters for properties to mirror attributes, making it easier to interact with the element from JavaScript.</li>
+</ul>
+<h3><var>dispatch()</var></h3>
+<p>Basically just a wrapper for <var>dispatchEvent()</var> that makes it easier to create and broadcast an event up the tree in a single step. Note that events are marked as <var>composed</var>, so that they cross shadow DOM boundaries.</p>
+<h3><var>illuminate()</var></h3>
+<p>In the 2020 primary results rig at NPR, we didn't use the shadow DOM. Our tooling was not set up to handle it, I didn't yet know how to use slots effectively to style content in the light DOM tree, and I didn't want to confuse my team.</p>
+<p>However, this meant we were challenged in how to handle templating consistently: remember, a custom element is not allowed to modify its inner or outer HTML during the constructor. Overwriting the contents indiscriminately would mean we'd need a way to keep event listeners or input state from being wiped out. And I was trying to keep bundle size down by not bringing in a template library (this was, in retrospect, premature optimization).</p>
+<p>The <var>illuminate()</var> method is a clever way around this self-imposed problem. It's a lazy-evaluated templating engine: the first time it's called, it sets the <var>innerHTML</var> of the component from a static class property, and creates a lookup of elements marked with "data-as" attributes. Then it replaces itself with a simple function that just returns the markup. As a result, you can call <var>this.illuminate()</var> as many times as you want, from any lifecycle method, in any order, and it will only actually alter the element contents the first time.</p>
+<p>Typical usage of <var>illuminate()</var> would go something like this:</p>
+<code class="language-js"><pre><span class="hljs-function"><span class="hljs-title">attributeChangedCallback</span>(<span class="hljs-params">attr, was, value</span>)</span> {
+  <span class="hljs-comment">// get the cached element references</span>
+  <span class="hljs-keyword">var</span> { label, link } = <span class="hljs-built_in">this</span>.illuminate();
+  <span class="hljs-keyword">switch</span> (attr) {
+    <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;src&quot;</span>:
+      link.href = value;
+    <span class="hljs-keyword">break</span>;
+
+    <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;headline&quot;</span>:
+      label.innerHTML = value ? value.trim() : <span class="hljs-string">&quot;&quot;</span>;
+    <span class="hljs-keyword">break</span>;
+  }
+}</pre></code>
+<p>Looking back on it, we would have been much better off using a micro-template engine to do JSX-style rendering. We were already loading a simple EJS template library, <a href="https://olado.github.io/doT/index.html">doT</a>, and we could have unified the static and dynamic DOM portions together. However, hindsight is 20/20 &mdash; and frankly, <var>illuminate()</var> is just such a clever little puzzle-box that I couldn't bear to kill my darlings.</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="cs-intro.html"> &laquo; Case studies</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="cs-autocomplete.html"> Autocomplete input &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>

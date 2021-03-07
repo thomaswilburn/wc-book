@@ -1,0 +1,54 @@
+@metadata...
+title: Custom element base class
+type: chapter
+...metadata
+
+@subhead Introduction
+
+This base class should be familiar at this point &mdash; we've seen bits and pieces of it as we've worked through the text. It's a combination of various superclasses that I've used at NPR and in personal projects, and is intended to smooth off the rough parts of the custom element API: making it easier to declaratively bind methods to an instance, inject templating, and define an element.
+
+@subhead `customElement.js`
+
+@includeCode(js) examples/custom-element.js
+
+@subhead Notes
+
+@subsubhead The constructor
+
+As mentioned in earlier chapters, this constructor performs a few tasks via introspection on the class definition itself:
+
+* It binds methods listed in the `boundMethods` static property to this specific instance, making it easier to add and remove event listeners and callbacks.
+* It can attach and populate a shadow root, creating a lookup of marked elements on the `shadowElements` property so that you don't have to query for them later.
+* Optionally, it creates getters/setters for properties to mirror attributes, making it easier to interact with the element from JavaScript.
+
+@subsubhead `dispatch()`
+
+Basically just a wrapper for `dispatchEvent()` that makes it easier to create and broadcast an event up the tree in a single step. Note that events are marked as `composed`, so that they cross shadow DOM boundaries.
+
+@subsubhead `illuminate()`
+
+In the 2020 primary results rig at NPR, we didn't use the shadow DOM. Our tooling was not set up to handle it, I didn't yet know how to use slots effectively to style content in the light DOM tree, and I didn't want to confuse my team. 
+
+However, this meant we were challenged in how to handle templating consistently: remember, a custom element is not allowed to modify its inner or outer HTML during the constructor. Overwriting the contents indiscriminately would mean we'd need a way to keep event listeners or input state from being wiped out. And I was trying to keep bundle size down by not bringing in a template library (this was, in retrospect, premature optimization).
+
+The `illuminate()` method is a clever way around this self-imposed problem. It's a lazy-evaluated templating engine: the first time it's called, it sets the `innerHTML` of the component from a static class property, and creates a lookup of elements marked with "data-as" attributes. Then it replaces itself with a simple function that just returns the markup. As a result, you can call `this.illuminate()` as many times as you want, from any lifecycle method, in any order, and it will only actually alter the element contents the first time.
+
+Typical usage of `illuminate()` would go something like this:
+
+@codeblock(js)...
+attributeChangedCallback(attr, was, value) {
+  // get the cached element references
+  var { label, link } = this.illuminate();
+  switch (attr) {
+    case "src":
+      link.href = value;
+    break;
+
+    case "headline":
+      label.innerHTML = value ? value.trim() : "";
+    break;
+  }
+}
+...codeblock
+
+Looking back on it, we would have been much better off using a micro-template engine to do JSX-style rendering. We were already loading a simple EJS template library, <a href="https://olado.github.io/doT/index.html">doT</a>, and we could have unified the static and dynamic DOM portions together. However, hindsight is 20/20 &mdash; and frankly, `illuminate()` is just such a clever little puzzle-box that I couldn't bear to kill my darlings.

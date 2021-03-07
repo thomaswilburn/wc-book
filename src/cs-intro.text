@@ -1,0 +1,10 @@
+@metadata...
+title: Case studies
+type: section-intro
+...metadata
+
+The theme of this book (I hope) is that web components are not just a way to build our own tags in the browser, but also a way to explore and reaffirm the unique union of technologies that make the web special. Custom elements give us a way to add additional meaning and expressiveness to HTML, defining new behavior through JavaScript and styles through isolated, well-defined CSS. Where expertise in a framework is often applicable only in that ecosystem, getting better at building web components makes us better at building for the web, period.
+
+In this section, we're going to look at a number of examples of web components that I've built for projects over the last four years. They're not all using best practices &mdash; I was learning myself, during much of this time &mdash; but that's valuable in itself. These <i>are</i> all real-world examples, and I will try to point out the places where something worked well, as well as where it didn't, so that you can learn from both.
+
+In each chapter, we'll open with a brief introduction to establish context, followed by the complete source code of the component. Finally, I'll walk through individual methods or interesting features that might be confusing or counterintuitive.

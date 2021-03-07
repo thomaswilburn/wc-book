@@ -28,12 +28,12 @@
     ]
   },
   {
-    "section": "Case studies",
+    "section": "cs-intro",
     "chapters": [
-      "CustomElement base class",
+      "cs-custom-element",
+      "cs-autocomplete",
       "shader-box",
       "media-controls",
-      "autocomplete-input",
       "2020 Primary Results"
     ]
   }
