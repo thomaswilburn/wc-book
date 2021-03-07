@@ -25,9 +25,9 @@ The `<datalist>` element is one of those web platform features that filled a hug
 </datalist>
 ...html
 
-Of course, one of the reasons that it probably hasn't gotten that attention is because the UI is platform-dependent, which is a fun way of saying "obtuse." For a graphic tracking hospitalization rates during the COVID pandemic, my team built a graphic using the `<datalist>` to populate US counties, but found that on iOS Safari (which shows the options as auto-suggest phrases above the keyboard) the stock UI was too subtle, and people were unable to use it effectively.
+Of course, one of the reasons that it probably hasn't gotten that attention is because the UI is platform-dependent, which is a fun way of saying "obtuse." For a graphic tracking hospitalization rates during the COVID pandemic, my team built a graphic using the `<datalist>` to populate US counties, but found that on iOS Safari the stock UI was too subtle (the options appear as auto-suggest phrases above the keyboard), and people were unable to use it effectively.
 
-This web component, then, is a single-file custom element that is a drop-in replacement that has a more traditional drop-down UI. You just swap out your `<input>` for an `<autocomplete-input>`, and it should just work. This component also goes to some pains to be accessible in screen readers, using ARIA to identify its markup accordingly. We've since used it on a few projects.
+This web component, then, is a single-file custom element that is a drop-in replacement with a more traditional drop-down UI. You just swap out your `<input>` for an `<autocomplete-input>`, and it should just work. This component also goes to some pains to be accessible in screen readers, using ARIA to identify its markup accordingly. We've since used it on a few other graphics.
 
 @subhead `autocomplete-input.js`
 
@@ -61,13 +61,13 @@ demo.addEventListener("change", () => output.innerHTML = `Chosen: ${demo.value}`
 
 @subsubhead The constructor
 
-Since this is meant to be easily copied into our graphics as-needed, this element doesn't use a separate base class. That means we spend a lot of time in the constructor manually creating DOM elements and adding them to the shadow root, then attaching event listeners to them. In the future, if we keep using this component, I will probably move this to a pattern more like my regular base class.
+Since I wrote this as a quick component that could be dropped into graphics, I didn't build it off our standard element class. That means we spend a lot of time in the constructor manually creating DOM elements and adding them to the shadow root, then attaching event listeners to them. In the future, if we keep using this component, I will probably move this to a pattern that handles more of the boilerplate.
 
 We also create a Mutation Observer for later use &mdash; this will monitor the `<datalist>` element to keep track of our autocomplete options.
 
 @subsubhead `connectedCallback()`
 
-Generally, the JavaScript bundle that includes this element definition is at the end of the page, so we don't have to worry about the order of the `<autocomplete-input>` relative to its linked `<datalist>`. However, just in case this script was loaded early for some reason and it wasn't able to find the element by ID, we add an event listener in the `connectedCallback()` to try again when the document is fully loaded.
+Generally, the JavaScript bundle that includes this element definition is at the end of the page, so we don't have to worry about the order of the `<autocomplete-input>` relative to its linked `<datalist>` &mdash; both should be in the DOM when the upgrade happens. However, just in case this script was loaded early for some reason and it wasn't able to find the element by ID, we add an event listener in the `connectedCallback()` to try again when the document is fully loaded.
 
 For a more elaborate element, I'd probably use the association/control pattern from earlier in this book, where the component actually watches the document for the addition or removal of a specific ID. But again, this element is almost always used in a very small page, containing a single graphic embed. We can sacrifice a little robustness in that case.
 
@@ -91,7 +91,7 @@ All of this guidance is taken from the <a href="https://www.w3.org/TR/wai-aria-p
 
 One notable event being handled is the `onMenuTouch()` listener, which is called for "touchstart" and "mousedown" events on the menu element. All this does is set a `cancelBlur` flag property &mdash; so what's the point?
 
-During testing, we noticed that some people, very inconsistently, would find that tapping a menu item wouldn't correctly update the input value. Instead, the menu would vanish, but the half-typed value would stay in place and no "input" events would fire. Having cut corners on this kind of UI in the past, I suspected the culprit immediately: a kind of race condition in the event listeners.
+During testing, some people (but only some, and not all the time) found that tapping a menu item wouldn't correctly update the input value. Instead, the menu would vanish, but the half-typed value would stay in place and no "input" events would fire. Having cut corners on this kind of UI in the past, I suspected the culprit immediately: a kind of race condition in the event listeners.
 
 Basically, the problem is that our component handles two different events that can close a menu. One is clicking a menu item, but the other is clicking or tapping anywhere else on the page, which "blurs" the input (the opposite of focus). On my machine, and other browsers where the autocomplete worked correctly, the order looked like this:
 
