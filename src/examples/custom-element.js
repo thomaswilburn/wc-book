@@ -8,6 +8,7 @@ class CustomElement extends HTMLElement {
     // if a shadow template is defined, inject it and find marked elements
     this.shadowElements = {};
     if (def.shadowTemplate) {
+      this.attachShadow({ mode: "open" });
       this.shadowRoot.innerHTML = def.shadowTemplate;
       this.shadowRoot.querySelectorAll(`[data-as]`).forEach(el => {
         var name = el.dataset.as;

@@ -1,6 +1,3 @@
-// this component uses our base element class
-var CustomElement = require("./customElement");
-
 // coordinates in GL space for two triangles that take up the whole viewport
 const POLYS = [
   -1, 1,
@@ -11,6 +8,7 @@ const POLYS = [
   -1, -1
 ];
 
+// this component uses our base element class
 class ShaderBox extends CustomElement {
   constructor() {
     super();
@@ -26,18 +24,19 @@ class ShaderBox extends CustomElement {
 
     // set up the WebGL context
     this.initGL();
-    this.elements.canvas.addEventListener("webglcontextlost", this.recover);
+    this.shadowElements.canvas.addEventListener("webglcontextlost", this.recover);
 
     // monitor for changes to shader-uniform children
     this.mutationObserver = new MutationObserver(this.onMutation);
     this.mutationObserver.observe(this, {
       childList: true,
+      subtree: true,
       attributes: true
     });
   }
 
   initGL() {
-    var gl = this.gl = this.elements.canvas.getContext("webgl");
+    var gl = this.gl = this.shadowElements.canvas.getContext("webgl");
     var vertex = gl.createShader(gl.VERTEX_SHADER);
     gl.shaderSource(vertex, `
     attribute vec2 coord;
@@ -86,11 +85,16 @@ class ShaderBox extends CustomElement {
         try {
           var response = await fetch(value, options);
           this.requesting = null;
+          if (response.status >= 400) throw `Request for ${value} failed`;
           var source = await response.text();
           this.setShader(source);
         } catch (err) {
           // abort signals are handled as if the fetch() threw
-          console.log(`Cancelled shader load for ${value}`);
+          if (err.name == "AbortError") {
+            console.log(`Cancelled shader load for ${value}`);
+          } else {
+            throw err;
+          }
         }
       break;
     }
@@ -172,7 +176,7 @@ class ShaderBox extends CustomElement {
     this.visible = e.isIntersecting;
     if (this.visible) this.tick();
     // seems to prevent cyan flash on some GPUs
-    this.elements.canvas.style.opacity = this.visible ? 1 : 0;
+    this.shadowElements.canvas.style.opacity = this.visible ? 1 : 0;
   }
 
   // render loop with visibility/readiness guards
@@ -206,7 +210,7 @@ class ShaderBox extends CustomElement {
     gl.drawArrays(gl.TRIANGLES, 0, POLYS.length / 2);
   }
 
-  static get template() {
+  static get shadowTemplate() {
     return `
       <style>
       :host {
@@ -224,7 +228,7 @@ class ShaderBox extends CustomElement {
         height: 100%;
       }
       </style>
-      <canvas as="canvas"></canvas>
+      <canvas data-as="canvas"></canvas>
     `
   }
 }

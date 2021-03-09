@@ -26,10 +26,7 @@
 <p>Despite these constraints, you can do incredible things just with a fragment shader and some basic math (Inigo Quilez is a <a href="https://www.youtube.com/watch?v=8--5LwHRhjk">well-known master</a> of this). You can see more examples at <a href="https://www.shadertoy.com/">Shadertoy</a>, and learn how to write your own from <a href="https://thebookofshaders.com/">The Book of Shaders</a>. But be careful: like a great puzzle game, fragment shaders can be addictive!</p>
 <p>I've been hooked for a few years now, but while I love writing shaders (I even made <a href="https://github.com/thomaswilburn/shadertab">a browser extension</a> that lets you fiddle with them in the new tab page) I don't love the WebGL boilerplate. What I really wanted was an element that would let me load a fragment shader and display it the same way that I would an image: set the "src" attribute and see the results. For an NPR project that needed some visual spice, I finally create it via this custom element.</p>
 <h2 id="shader-boxjs"><var>shader-box.js</var></h2>
-<code class="language-js"><pre><span class="hljs-comment">// this component uses our base element class</span>
-<span class="hljs-keyword">var</span> CustomElement = <span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;./customElement&quot;</span>);
-
-<span class="hljs-comment">// coordinates in GL space for two triangles that take up the whole viewport</span>
+<code class="language-js"><pre><span class="hljs-comment">// coordinates in GL space for two triangles that take up the whole viewport</span>
 <span class="hljs-keyword">const</span> POLYS = [
   -<span class="hljs-number">1</span>, <span class="hljs-number">1</span>,
   <span class="hljs-number">1</span>, <span class="hljs-number">1</span>,
@@ -39,6 +36,7 @@
   -<span class="hljs-number">1</span>, -<span class="hljs-number">1</span>
 ];
 
+<span class="hljs-comment">// this component uses our base element class</span>
 <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ShaderBox</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">CustomElement</span> </span>{
   <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
     <span class="hljs-built_in">super</span>();
@@ -54,18 +52,19 @@
 
     <span class="hljs-comment">// set up the WebGL context</span>
     <span class="hljs-built_in">this</span>.initGL();
-    <span class="hljs-built_in">this</span>.elements.canvas.addEventListener(<span class="hljs-string">&quot;webglcontextlost&quot;</span>, <span class="hljs-built_in">this</span>.recover);
+    <span class="hljs-built_in">this</span>.shadowElements.canvas.addEventListener(<span class="hljs-string">&quot;webglcontextlost&quot;</span>, <span class="hljs-built_in">this</span>.recover);
 
     <span class="hljs-comment">// monitor for changes to shader-uniform children</span>
     <span class="hljs-built_in">this</span>.mutationObserver = <span class="hljs-keyword">new</span> MutationObserver(<span class="hljs-built_in">this</span>.onMutation);
     <span class="hljs-built_in">this</span>.mutationObserver.observe(<span class="hljs-built_in">this</span>, {
       <span class="hljs-attr">childList</span>: <span class="hljs-literal">true</span>,
+      <span class="hljs-attr">subtree</span>: <span class="hljs-literal">true</span>,
       <span class="hljs-attr">attributes</span>: <span class="hljs-literal">true</span>
     });
   }
 
   <span class="hljs-function"><span class="hljs-title">initGL</span>(<span class="hljs-params"></span>)</span> {
-    <span class="hljs-keyword">var</span> gl = <span class="hljs-built_in">this</span>.gl = <span class="hljs-built_in">this</span>.elements.canvas.getContext(<span class="hljs-string">&quot;webgl&quot;</span>);
+    <span class="hljs-keyword">var</span> gl = <span class="hljs-built_in">this</span>.gl = <span class="hljs-built_in">this</span>.shadowElements.canvas.getContext(<span class="hljs-string">&quot;webgl&quot;</span>);
     <span class="hljs-keyword">var</span> vertex = gl.createShader(gl.VERTEX_SHADER);
     gl.shaderSource(vertex, <span class="hljs-string">`
     attribute vec2 coord;
@@ -114,11 +113,16 @@
         <span class="hljs-keyword">try</span> {
           <span class="hljs-keyword">var</span> response = <span class="hljs-keyword">await</span> fetch(value, options);
           <span class="hljs-built_in">this</span>.requesting = <span class="hljs-literal">null</span>;
+          <span class="hljs-keyword">if</span> (response.status &gt;= <span class="hljs-number">400</span>) <span class="hljs-keyword">throw</span> <span class="hljs-string">`Request for <span class="hljs-subst">${value}</span> failed`</span>;
           <span class="hljs-keyword">var</span> source = <span class="hljs-keyword">await</span> response.text();
           <span class="hljs-built_in">this</span>.setShader(source);
         } <span class="hljs-keyword">catch</span> (err) {
           <span class="hljs-comment">// abort signals are handled as if the fetch() threw</span>
-          <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Cancelled shader load for <span class="hljs-subst">${value}</span>`</span>);
+          <span class="hljs-keyword">if</span> (err.name == <span class="hljs-string">&quot;AbortError&quot;</span>) {
+            <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Cancelled shader load for <span class="hljs-subst">${value}</span>`</span>);
+          } <span class="hljs-keyword">else</span> {
+            <span class="hljs-keyword">throw</span> err;
+          }
         }
       <span class="hljs-keyword">break</span>;
     }
@@ -200,7 +204,7 @@
     <span class="hljs-built_in">this</span>.visible = e.isIntersecting;
     <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.visible) <span class="hljs-built_in">this</span>.tick();
     <span class="hljs-comment">// seems to prevent cyan flash on some GPUs</span>
-    <span class="hljs-built_in">this</span>.elements.canvas.style.opacity = <span class="hljs-built_in">this</span>.visible ? <span class="hljs-number">1</span> : <span class="hljs-number">0</span>;
+    <span class="hljs-built_in">this</span>.shadowElements.canvas.style.opacity = <span class="hljs-built_in">this</span>.visible ? <span class="hljs-number">1</span> : <span class="hljs-number">0</span>;
   }
 
   <span class="hljs-comment">// render loop with visibility/readiness guards</span>
@@ -234,7 +238,7 @@
     gl.drawArrays(gl.TRIANGLES, <span class="hljs-number">0</span>, POLYS.length / <span class="hljs-number">2</span>);
   }
 
-  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">template</span>() {
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">shadowTemplate</span>() {
     <span class="hljs-keyword">return</span> <span class="hljs-string">`
       &lt;style&gt;
       :host {
@@ -252,12 +256,349 @@
         height: 100%;
       }
       &lt;/style&gt;
-      &lt;canvas as=&quot;canvas&quot;&gt;&lt;/canvas&gt;
+      &lt;canvas data-as=&quot;canvas&quot;&gt;&lt;/canvas&gt;
     `</span>
   }
 }
 
 ShaderBox.define(<span class="hljs-string">&quot;shader-box&quot;</span>);</pre></code>
+<h2 id="demo">Demo</h2>
+<script type="module">
+class CustomElement extends HTMLElement {
+
+  constructor() {
+    super();
+    // new.target is the current constructor function
+    var def = new.target;
+
+    // if a shadow template is defined, inject it and find marked elements
+    this.shadowElements = {};
+    if (def.shadowTemplate) {
+      this.attachShadow({ mode: "open" });
+      this.shadowRoot.innerHTML = def.shadowTemplate;
+      this.shadowRoot.querySelectorAll(`[data-as]`).forEach(el => {
+        var name = el.dataset.as;
+        this.shadowElements[name] = el;
+      });
+    }
+
+    // bind methods for events to the current element
+    if (def.boundMethods) {
+      def.boundMethods.forEach(f => this[f] = this[f].bind(this));
+    }
+
+    // these properties will update their attributes
+    if (def.mirroredProps) {
+      def.mirroredProps.forEach(p => Object.defineProperty(this, p, {
+        get() { this.getAttribute(p) },
+        set(v) { this.setAttribute(p, v); return v; }
+      }));
+    }
+  }
+
+  // send an event up the tree
+  dispatch(event, detail) {
+    var e = new CustomEvent(event, {
+      bubbles: true,
+      composed: true,
+      detail
+    });
+    this.dispatchEvent(e);
+  }
+
+  // looks for a static template getter on the class
+  // injects that HTML into the element's light DOM
+  // returns a hash of "data-as" elements
+  // this is memoized and will only "run" once
+  illuminate() {
+    // get the light DOM template
+    var template = this.constructor.lightTemplate;
+    // inject into the node and query for marked elements
+    this.innerHTML = template;
+    var manuscript = {};
+    var landmarks = this.querySelectorAll("[data-as]");
+    for (var l of landmarks) {
+      var key = l.dataset.as;
+      manuscript[key] = l;
+    }
+    // replace this method with a memoized version
+    this.illuminate = () => manuscript;
+    // return the elements lookup
+    return manuscript;
+  }
+
+  // handle registration
+  static define(tag) {
+    try {
+      window.customElements.define(tag, this);
+    } catch (err) {
+      console.log(`Couldn't (re)define ${tag} element`);
+    }
+  }
+}
+// coordinates in GL space for two triangles that take up the whole viewport
+const POLYS = [
+  -1, 1,
+  1, 1,
+  1, -1,
+  -1, 1,
+  1, -1,
+  -1, -1
+];
+
+// this component uses our base element class
+class ShaderBox extends CustomElement {
+  constructor() {
+    super();
+
+    // visibility and animation
+    this.observer = new IntersectionObserver(this.onIntersection);
+    this.observer.observe(this);
+    this.visible = false;
+    this.raf = null;
+
+    // AbortController for in-flight fetch requests
+    this.requesting = null;
+
+    // set up the WebGL context
+    this.initGL();
+    this.shadowElements.canvas.addEventListener("webglcontextlost", this.recover);
+
+    // monitor for changes to shader-uniform children
+    this.mutationObserver = new MutationObserver(this.onMutation);
+    this.mutationObserver.observe(this, {
+      childList: true,
+      subtree: true,
+      attributes: true
+    });
+  }
+
+  initGL() {
+    var gl = this.gl = this.shadowElements.canvas.getContext("webgl");
+    var vertex = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vertex, `
+    attribute vec2 coord;
+    void main() {
+      gl_Position = vec4(coord, 0.0, 1.0);
+    }
+    `);
+    gl.compileShader(vertex);
+    gl.vertex = vertex;
+    this.buffer = gl.createBuffer();
+    this.program = null;
+  }
+
+  static get boundMethods() {
+    return [
+      "onIntersection",
+      "onMutation",
+      "tick",
+      "recover"
+    ];
+  }
+
+  static get observedAttributes() {
+    return [ "src" ]
+  }
+
+  static get mirroredProps() {
+    return [ "src" ]
+  }
+
+  async attributeChangedCallback(attr, was, value) {
+    switch (attr) {
+      case "src":
+        if (was == value) return;
+        // cancel any outgoing requests
+        if (this.requesting) {
+          this.requesting.abort();
+        }
+        var options = {};
+        // if we can, create a new cancellation token
+        if ("AbortController" in window) {
+          this.requesting = new AbortController();
+          options.signal = this.requesting.signal;
+        }
+        // get the new shader
+        try {
+          var response = await fetch(value, options);
+          this.requesting = null;
+          if (response.status >= 400) throw `Request for ${value} failed`;
+          var source = await response.text();
+          this.setShader(source);
+        } catch (err) {
+          // abort signals are handled as if the fetch() threw
+          if (err.name == "AbortError") {
+            console.log(`Cancelled shader load for ${value}`);
+          } else {
+            throw err;
+          }
+        }
+      break;
+    }
+  }
+
+  recover() {
+    var uniforms = this.gl.uniforms;
+    this.initGL();
+    Object.assign(this.gl.uniforms, uniforms);
+    if (this.shaderCache) {
+      this.setShader(this.shaderCache);
+    }
+  }
+
+  setShader(shader) {
+    // cancel requests if this was called directly
+    if (this.requesting) {
+      this.requesting.abort();
+    }
+
+    // compile and link our fragment shader
+    var gl = this.gl;
+    gl.program = null;
+    var fragment = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fragment, shader);
+    gl.compileShader(fragment);
+    this.shaderCache = shader;
+
+    var error = gl.getShaderInfoLog(fragment);
+    if (error) {
+      console.log(error);
+      return;
+    }
+
+    var program = gl.createProgram();
+    gl.attachShader(program, fragment);
+    gl.attachShader(program, gl.vertex);
+    gl.linkProgram(program);
+    gl.useProgram(program);
+    
+    // get attributes and uniforms
+    gl.program = program;
+    gl.attributes = {
+      coord: 0
+    };
+    for (var a in gl.attributes) gl.attributes[a] = gl.getAttribLocation(program, a);
+    gl.uniforms = {
+      u_time: 0,
+      u_resolution: 0
+    };
+    for (var u in gl.uniforms) gl.uniforms[u] = gl.getUniformLocation(program, u);
+
+    this.onMutation();
+
+    this.tick();
+  }
+
+  // call GL methods to set the values of uniforms (shader globals)
+  setUniform(name, ...values) {
+    var gl = this.gl;
+    if (!gl.uniforms[name]) {
+      gl.uniforms[name] = gl.getUniformLocation(gl.program, name);
+    }
+    var method = `uniform${values.length}f`;
+    gl[method](gl.uniforms[name], ...values);
+  }
+
+  // process shader-uniform children and add them to our mapping
+  onMutation() {
+    var uniforms = Array.from(this.children).filter(t => t.tagName == "SHADER-UNIFORM");
+    for (var uniform of uniforms) {
+      var name = uniform.getAttribute("name");
+      var values = uniform.getAttribute("values").split(/, */).map(Number);
+      this.setUniform(name, ...values);
+    }
+  }
+
+  onIntersection([e]) {
+    this.visible = e.isIntersecting;
+    if (this.visible) this.tick();
+    // seems to prevent cyan flash on some GPUs
+    this.shadowElements.canvas.style.opacity = this.visible ? 1 : 0;
+  }
+
+  // render loop with visibility/readiness guards
+  tick(t) {
+    if (!this.visible) return;
+    if (this.raf) cancelAnimationFrame(this.raf);
+    if (this.gl.program) this.render(t);
+    this.raf = requestAnimationFrame(this.tick);
+  }
+
+  render(t) {
+    var { buffer, gl } = this;
+    // require setShader() to be called
+    if (!gl.program) return;
+    var canvas = gl.canvas;
+    // set up our two triangles
+    gl.enableVertexAttribArray(gl.uniforms.coords);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(POLYS), gl.STATIC_DRAW);
+    gl.vertexAttribPointer(gl.uniforms.coords, 2, gl.FLOAT, false, 0, 0);
+    // add a time uniform, with some offset to starting at 0
+    gl.uniform1f(gl.uniforms.u_time, t + 12581372.5324);
+    // adjust to the current canvas size and set resolution uniform
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.uniform2f(gl.uniforms.u_resolution, canvas.width, canvas.height);
+    // clear canvas and render
+    gl.clearColor(0, 1, 1, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLES, 0, POLYS.length / 2);
+  }
+
+  static get shadowTemplate() {
+    return `
+      <style>
+      :host {
+        width: 300px;
+        height: 150px;
+        display: block;
+        position: relative;
+      }
+
+      canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+      </style>
+      <canvas data-as="canvas"></canvas>
+    `
+  }
+}
+
+ShaderBox.define("shader-box");
+</script>
+<style>
+  .demo-shader {
+    width: 100%;
+    height: 500px;
+    max-height: 60vh;
+    margin: auto;
+  }
+</style>
+<shader-box class="demo-shader" src="./static/lava.glsl">
+  <shader-uniform name="u_color" values="0.3,0.6,0.6"></shader-uniform>
+</shader-box>
+<h2 id="notes">Notes</h2>
+<p>Knowing how WebGL works isn't a prerequisite for talking about this element. However, if you're curious, I've found <a href="https://webglfundamentals.com">WebGL Fundamentals</a> to be one of the best tutorials on the subject.</p>
+<h3>Cancelling requests</h3>
+<p>Loading shaders from the network by setting the "src" attribute is relatively straightforward: when we get the <var>attributeChangedCallback()</var> notification, we just <var>fetch()</var> the file and feed its contents to <var>setShader()</var>. However, what if we were to set it multiple times in rapid succession? We would expect only the final value to be loaded, since that's how <var>&lt;img&gt;</var> and other tags work, but depending on how fast the network responded (and in which order), we could get very different results as the rest of the callback runs.</p>
+<p>To avoid this scenario (and to let us override a remote shader when we call <var>setShader()</var> directly), we need to cancel any pending requests when the attribute is updated. Surprisingly, the <var>fetch()</var> API did not initially ship with a way to cancel requests &mdash; it's based on Promises, and there's no way to reject a standard Promise from outside of itself. Several methods were explored, and the eventual winner was the creation of Abort Controllers, which let you pass a signal into one or more requests and then cancel them all at once.</p>
+<p>Essentially, we create a new <var>AbortController</var> instance for every fetch, storing it on <var>this.requesting</var>. If there was already a controller there, we call its <var>abort()</var> method to cancel the previous request (if it already completed successfully, nothing will happen). Once the request completes, we nullify <var>this.requesting</var> to clean up a little, and keep <var>setShader()</var> from sending pointless abort signals.</p>
+<p>One thing that can trip you up is that aborting a fetch is treated as a thrown exception. This can be surprising at first, because <var>fetch()</var> as an API does not typically throw where you'd expect it to &mdash; things like <var>404</var> status codes are seen as a "successful" fetch (in that the network request completed), even if the result actually represents an error. To keep us from having one path for "real" errors and one for abort signals, we throw exceptions on 400+ status codes, so that everything can be handled in the <var>catch</var> clause for the fetch.</p>
+<h3>Observation patterns</h3>
+<p>This element has a couple of observers connected to it, both set up in the constructor. It uses an Intersection Observer to track its own visibility, and only renders if it's actually in view. WebGL shaders do not have to be strenuous on modern hardware, but there's no reason to do extra work &mdash; and since fragment shaders don't have any memory between executions, we don't have to worry about losing anything while the render loop is "paused."</p>
+<p>We also define a small domain-specific language for this element, currently composed only of <var>&lt;shader-uniform&gt;</var> elements. These set "uniforms" within the fragment shader, which is WebGL jargon for global values accessible to all fragments. A Mutation Observer watches the custom element and its subtree for node and attribute changes, and runs our <var>onMutation()</var> method if it sees them. Since there can be multiple uniforms per shader and they can have any name you want, it's easier to represent these as child elements than as attributes on the <var>&lt;shader-box&gt;</var> itself.</p>
+<h3>Future improvements</h3>
+<p>One of the reasons that I'm a strong advocate for using patterns that already exist in the platform, besides taking advantage of existing developer knowledge, is that it allows our code to interoperate more easily with the platform. For example, if you have code that is tuned to work with <var>&lt;video&gt;</var> in terms of the basic events and properties it expects, it will also usually work with <var>&lt;audio&gt;</var> (which also implements the <var>MediaElement</var> interface), or with any other media element that browsers might add.</p>
+<p>Our WebGL code is not quite the same as a media tag &mdash; for one thing, it doesn't have a beginning, end, or current time. However, there are some similarities. It might make sense to add common events, methods, and properties to our tag to permit it a little extra control. For example, we might support the <var>play()</var> method and the <var>paused</var> property, so that controls could toggle the animation and reflect its current state. We might also add loading events, so that other code on the page could know when the animation is ready to go (useful for lazy-loading).</p>
+<p>In terms of WebGL, the other natural extension point would be to expand the range of inputs available via child elements. In addition to the uniform values currently supported, we could automatically load <var>&lt;img&gt;</var> tags as textures, or even feed in <var>&lt;video&gt;</var> and <var>&lt;audio&gt;</var> as buffers for shaders to access.</p>
+<p>A richer set of tools exposed through a domain-specific language isn't just useful for fragment shader developers. It also expands the potential uses of this element. For example, a shader can easily replicate filters from something like Photoshop or Premiere. By providing a basic manipulation shader and a comprehensive DSL for inputs, it would be possible for people who only know HTML to embed a video with tweakable effects applied.</p>
   </main>
   <nav class="chapter-links bottom">
     <ul>

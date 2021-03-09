@@ -14,3 +14,53 @@ I've been hooked for a few years now, but while I love writing shaders (I even m
 @subhead `shader-box.js`
 
 @includeCode(js) examples/shader-box.js
+
+@subhead Demo
+
+@html <script type="module">
+@include examples/custom-element.js
+@include examples/shader-box.js
+@html... 
+</script>
+<style>
+  .demo-shader {
+    width: 100%;
+    height: 500px;
+    max-height: 60vh;
+    margin: auto;
+  }
+</style>
+<shader-box class="demo-shader" src="./static/lava.glsl">
+  <shader-uniform name="u_color" values="0.3,0.6,0.6"></shader-uniform>
+</shader-box>
+...html
+
+@subhead Notes
+
+Knowing how WebGL works isn't a prerequisite for talking about this element. However, if you're curious, I've found <a href="https://webglfundamentals.com">WebGL Fundamentals</a> to be one of the best tutorials on the subject.
+
+@subsubhead Cancelling requests
+
+Loading shaders from the network by setting the "src" attribute is relatively straightforward: when we get the `attributeChangedCallback()` notification, we just `fetch()` the file and feed its contents to `setShader()`. However, what if we were to set it multiple times in rapid succession? We would expect only the final value to be loaded, since that's how `<img>` and other tags work, but depending on how fast the network responded (and in which order), we could get very different results as the rest of the callback runs.
+
+To avoid this scenario (and to let us override a remote shader when we call `setShader()` directly), we need to cancel any pending requests when the attribute is updated. Surprisingly, the `fetch()` API did not initially ship with a way to cancel requests &mdash; it's based on Promises, and there's no way to reject a standard Promise from outside of itself. Several methods were explored, and the eventual winner was the creation of Abort Controllers, which let you pass a signal into one or more requests and then cancel them all at once.
+
+Essentially, we create a new `AbortController` instance for every fetch, storing it on `this.requesting`. If there was already a controller there, we call its `abort()` method to cancel the previous request (if it already completed successfully, nothing will happen). Once the request completes, we nullify `this.requesting` to clean up a little, and keep `setShader()` from sending pointless abort signals.
+
+One thing that can trip you up is that aborting a fetch is treated as a thrown exception. This can be surprising at first, because `fetch()` as an API does not typically throw where you'd expect it to &mdash; things like `404` status codes are seen as a "successful" fetch (in that the network request completed), even if the result actually represents an error. To keep us from having one path for "real" errors and one for abort signals, we throw exceptions on 400+ status codes, so that everything can be handled in the `catch` clause for the fetch.
+
+@subsubhead Observation patterns
+
+This element has a couple of observers connected to it, both set up in the constructor. It uses an Intersection Observer to track its own visibility, and only renders if it's actually in view. WebGL shaders do not have to be strenuous on modern hardware, but there's no reason to do extra work &mdash; and since fragment shaders don't have any memory between executions, we don't have to worry about losing anything while the render loop is "paused."
+
+We also define a small domain-specific language for this element, currently composed only of `<shader-uniform>` elements. These set "uniforms" within the fragment shader, which is WebGL jargon for global values accessible to all fragments. A Mutation Observer watches the custom element and its subtree for node and attribute changes, and runs our `onMutation()` method if it sees them. Since there can be multiple uniforms per shader and they can have any name you want, it's easier to represent these as child elements than as attributes on the `<shader-box>` itself.
+
+@subsubhead Future improvements
+
+One of the reasons that I'm a strong advocate for using patterns that already exist in the platform, besides taking advantage of existing developer knowledge, is that it allows our code to interoperate more easily with the platform. For example, if you have code that is tuned to work with `<video>` in terms of the basic events and properties it expects, it will also usually work with `<audio>` (which also implements the `MediaElement` interface), or with any other media element that browsers might add.
+
+Our WebGL code is not quite the same as a media tag &mdash; for one thing, it doesn't have a beginning, end, or current time. However, there are some similarities. It might make sense to add common events, methods, and properties to our tag to permit it a little extra control. For example, we might support the `play()` method and the `paused` property, so that controls could toggle the animation and reflect its current state. We might also add loading events, so that other code on the page could know when the animation is ready to go (useful for lazy-loading).
+
+In terms of WebGL, the other natural extension point would be to expand the range of inputs available via child elements. In addition to the uniform values currently supported, we could automatically load `<img>` tags as textures, or even feed in `<video>` and `<audio>` as buffers for shaders to access.
+
+A richer set of tools exposed through a domain-specific language isn't just useful for fragment shader developers. It also expands the potential uses of this element. For example, a shader can easily replicate filters from something like Photoshop or Premiere. By providing a basic manipulation shader and a comprehensive DSL for inputs, it would be possible for people who only know HTML to embed a video with tweakable effects applied.

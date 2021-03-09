@@ -34,6 +34,7 @@
     <span class="hljs-comment">// if a shadow template is defined, inject it and find marked elements</span>
     <span class="hljs-built_in">this</span>.shadowElements = {};
     <span class="hljs-keyword">if</span> (def.shadowTemplate) {
+      <span class="hljs-built_in">this</span>.attachShadow({ <span class="hljs-attr">mode</span>: <span class="hljs-string">&quot;open&quot;</span> });
       <span class="hljs-built_in">this</span>.shadowRoot.innerHTML = def.shadowTemplate;
       <span class="hljs-built_in">this</span>.shadowRoot.querySelectorAll(<span class="hljs-string">`[data-as]`</span>).forEach(<span class="hljs-function"><span class="hljs-params">el</span> =&gt;</span> {
         <span class="hljs-keyword">var</span> name = el.dataset.as;
