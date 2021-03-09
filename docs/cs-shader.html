@@ -1,0 +1,270 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>WebGL shader preview</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="cs-shader chapter">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="cs-autocomplete.html"> &laquo; Autocomplete input</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="index.html"> media-controls &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    
+  </aside>
+  <h1>WebGL shader preview</h1>
+<p>WebGL itself is not a very good API &mdash; conceptually it follows directly from the OpenGL ES API, which was written in C and defined as a state machine. It's familiar to graphics programmers, and that's about all it has going for it. Which is a shame, since hidden behind that intimidating facade is a fascinating creative environment: fragment shaders.</p>
+<p>Fragment shaders are small programs that run for every pixel in a WebGL polygon. They're typically used to do things like texturing and lighting within a 3D scene. Your video card is extremely good at running thousands (or even million) of these programs in parallel, with certain tradeoffs: they can't directly share information with each other, and they can't retain state between executions.</p>
+<p>Despite these constraints, you can do incredible things just with a fragment shader and some basic math (Inigo Quilez is a <a href="https://www.youtube.com/watch?v=8--5LwHRhjk">well-known master</a> of this). You can see more examples at <a href="https://www.shadertoy.com/">Shadertoy</a>, and learn how to write your own from <a href="https://thebookofshaders.com/">The Book of Shaders</a>. But be careful: like a great puzzle game, fragment shaders can be addictive!</p>
+<p>I've been hooked for a few years now, but while I love writing shaders (I even made <a href="https://github.com/thomaswilburn/shadertab">a browser extension</a> that lets you fiddle with them in the new tab page) I don't love the WebGL boilerplate. What I really wanted was an element that would let me load a fragment shader and display it the same way that I would an image: set the "src" attribute and see the results. For an NPR project that needed some visual spice, I finally create it via this custom element.</p>
+<h2 id="shader-boxjs"><var>shader-box.js</var></h2>
+<code class="language-js"><pre><span class="hljs-comment">// this component uses our base element class</span>
+<span class="hljs-keyword">var</span> CustomElement = <span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;./customElement&quot;</span>);
+
+<span class="hljs-comment">// coordinates in GL space for two triangles that take up the whole viewport</span>
+<span class="hljs-keyword">const</span> POLYS = [
+  -<span class="hljs-number">1</span>, <span class="hljs-number">1</span>,
+  <span class="hljs-number">1</span>, <span class="hljs-number">1</span>,
+  <span class="hljs-number">1</span>, -<span class="hljs-number">1</span>,
+  -<span class="hljs-number">1</span>, <span class="hljs-number">1</span>,
+  <span class="hljs-number">1</span>, -<span class="hljs-number">1</span>,
+  -<span class="hljs-number">1</span>, -<span class="hljs-number">1</span>
+];
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ShaderBox</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">CustomElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+
+    <span class="hljs-comment">// visibility and animation</span>
+    <span class="hljs-built_in">this</span>.observer = <span class="hljs-keyword">new</span> IntersectionObserver(<span class="hljs-built_in">this</span>.onIntersection);
+    <span class="hljs-built_in">this</span>.observer.observe(<span class="hljs-built_in">this</span>);
+    <span class="hljs-built_in">this</span>.visible = <span class="hljs-literal">false</span>;
+    <span class="hljs-built_in">this</span>.raf = <span class="hljs-literal">null</span>;
+
+    <span class="hljs-comment">// AbortController for in-flight fetch requests</span>
+    <span class="hljs-built_in">this</span>.requesting = <span class="hljs-literal">null</span>;
+
+    <span class="hljs-comment">// set up the WebGL context</span>
+    <span class="hljs-built_in">this</span>.initGL();
+    <span class="hljs-built_in">this</span>.elements.canvas.addEventListener(<span class="hljs-string">&quot;webglcontextlost&quot;</span>, <span class="hljs-built_in">this</span>.recover);
+
+    <span class="hljs-comment">// monitor for changes to shader-uniform children</span>
+    <span class="hljs-built_in">this</span>.mutationObserver = <span class="hljs-keyword">new</span> MutationObserver(<span class="hljs-built_in">this</span>.onMutation);
+    <span class="hljs-built_in">this</span>.mutationObserver.observe(<span class="hljs-built_in">this</span>, {
+      <span class="hljs-attr">childList</span>: <span class="hljs-literal">true</span>,
+      <span class="hljs-attr">attributes</span>: <span class="hljs-literal">true</span>
+    });
+  }
+
+  <span class="hljs-function"><span class="hljs-title">initGL</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-keyword">var</span> gl = <span class="hljs-built_in">this</span>.gl = <span class="hljs-built_in">this</span>.elements.canvas.getContext(<span class="hljs-string">&quot;webgl&quot;</span>);
+    <span class="hljs-keyword">var</span> vertex = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vertex, <span class="hljs-string">`
+    attribute vec2 coord;
+    void main() {
+      gl_Position = vec4(coord, 0.0, 1.0);
+    }
+    `</span>);
+    gl.compileShader(vertex);
+    gl.vertex = vertex;
+    <span class="hljs-built_in">this</span>.buffer = gl.createBuffer();
+    <span class="hljs-built_in">this</span>.program = <span class="hljs-literal">null</span>;
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">boundMethods</span>() {
+    <span class="hljs-keyword">return</span> [
+      <span class="hljs-string">&quot;onIntersection&quot;</span>,
+      <span class="hljs-string">&quot;onMutation&quot;</span>,
+      <span class="hljs-string">&quot;tick&quot;</span>,
+      <span class="hljs-string">&quot;recover&quot;</span>
+    ];
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">observedAttributes</span>() {
+    <span class="hljs-keyword">return</span> [ <span class="hljs-string">&quot;src&quot;</span> ]
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">mirroredProps</span>() {
+    <span class="hljs-keyword">return</span> [ <span class="hljs-string">&quot;src&quot;</span> ]
+  }
+
+  <span class="hljs-keyword">async</span> <span class="hljs-function"><span class="hljs-title">attributeChangedCallback</span>(<span class="hljs-params">attr, was, value</span>)</span> {
+    <span class="hljs-keyword">switch</span> (attr) {
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;src&quot;</span>:
+        <span class="hljs-keyword">if</span> (was == value) <span class="hljs-keyword">return</span>;
+        <span class="hljs-comment">// cancel any outgoing requests</span>
+        <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.requesting) {
+          <span class="hljs-built_in">this</span>.requesting.abort();
+        }
+        <span class="hljs-keyword">var</span> options = {};
+        <span class="hljs-comment">// if we can, create a new cancellation token</span>
+        <span class="hljs-keyword">if</span> (<span class="hljs-string">&quot;AbortController&quot;</span> <span class="hljs-keyword">in</span> <span class="hljs-built_in">window</span>) {
+          <span class="hljs-built_in">this</span>.requesting = <span class="hljs-keyword">new</span> AbortController();
+          options.signal = <span class="hljs-built_in">this</span>.requesting.signal;
+        }
+        <span class="hljs-comment">// get the new shader</span>
+        <span class="hljs-keyword">try</span> {
+          <span class="hljs-keyword">var</span> response = <span class="hljs-keyword">await</span> fetch(value, options);
+          <span class="hljs-built_in">this</span>.requesting = <span class="hljs-literal">null</span>;
+          <span class="hljs-keyword">var</span> source = <span class="hljs-keyword">await</span> response.text();
+          <span class="hljs-built_in">this</span>.setShader(source);
+        } <span class="hljs-keyword">catch</span> (err) {
+          <span class="hljs-comment">// abort signals are handled as if the fetch() threw</span>
+          <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Cancelled shader load for <span class="hljs-subst">${value}</span>`</span>);
+        }
+      <span class="hljs-keyword">break</span>;
+    }
+  }
+
+  <span class="hljs-function"><span class="hljs-title">recover</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-keyword">var</span> uniforms = <span class="hljs-built_in">this</span>.gl.uniforms;
+    <span class="hljs-built_in">this</span>.initGL();
+    <span class="hljs-built_in">Object</span>.assign(<span class="hljs-built_in">this</span>.gl.uniforms, uniforms);
+    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.shaderCache) {
+      <span class="hljs-built_in">this</span>.setShader(<span class="hljs-built_in">this</span>.shaderCache);
+    }
+  }
+
+  <span class="hljs-function"><span class="hljs-title">setShader</span>(<span class="hljs-params">shader</span>)</span> {
+    <span class="hljs-comment">// cancel requests if this was called directly</span>
+    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.requesting) {
+      <span class="hljs-built_in">this</span>.requesting.abort();
+    }
+
+    <span class="hljs-comment">// compile and link our fragment shader</span>
+    <span class="hljs-keyword">var</span> gl = <span class="hljs-built_in">this</span>.gl;
+    gl.program = <span class="hljs-literal">null</span>;
+    <span class="hljs-keyword">var</span> fragment = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fragment, shader);
+    gl.compileShader(fragment);
+    <span class="hljs-built_in">this</span>.shaderCache = shader;
+
+    <span class="hljs-keyword">var</span> error = gl.getShaderInfoLog(fragment);
+    <span class="hljs-keyword">if</span> (error) {
+      <span class="hljs-built_in">console</span>.log(error);
+      <span class="hljs-keyword">return</span>;
+    }
+
+    <span class="hljs-keyword">var</span> program = gl.createProgram();
+    gl.attachShader(program, fragment);
+    gl.attachShader(program, gl.vertex);
+    gl.linkProgram(program);
+    gl.useProgram(program);
+    
+    <span class="hljs-comment">// get attributes and uniforms</span>
+    gl.program = program;
+    gl.attributes = {
+      <span class="hljs-attr">coord</span>: <span class="hljs-number">0</span>
+    };
+    <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> a <span class="hljs-keyword">in</span> gl.attributes) gl.attributes[a] = gl.getAttribLocation(program, a);
+    gl.uniforms = {
+      <span class="hljs-attr">u_time</span>: <span class="hljs-number">0</span>,
+      <span class="hljs-attr">u_resolution</span>: <span class="hljs-number">0</span>
+    };
+    <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> u <span class="hljs-keyword">in</span> gl.uniforms) gl.uniforms[u] = gl.getUniformLocation(program, u);
+
+    <span class="hljs-built_in">this</span>.onMutation();
+
+    <span class="hljs-built_in">this</span>.tick();
+  }
+
+  <span class="hljs-comment">// call GL methods to set the values of uniforms (shader globals)</span>
+  <span class="hljs-function"><span class="hljs-title">setUniform</span>(<span class="hljs-params">name, ...values</span>)</span> {
+    <span class="hljs-keyword">var</span> gl = <span class="hljs-built_in">this</span>.gl;
+    <span class="hljs-keyword">if</span> (!gl.uniforms[name]) {
+      gl.uniforms[name] = gl.getUniformLocation(gl.program, name);
+    }
+    <span class="hljs-keyword">var</span> method = <span class="hljs-string">`uniform<span class="hljs-subst">${values.length}</span>f`</span>;
+    gl[method](gl.uniforms[name], ...values);
+  }
+
+  <span class="hljs-comment">// process shader-uniform children and add them to our mapping</span>
+  <span class="hljs-function"><span class="hljs-title">onMutation</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-keyword">var</span> uniforms = <span class="hljs-built_in">Array</span>.from(<span class="hljs-built_in">this</span>.children).filter(<span class="hljs-function"><span class="hljs-params">t</span> =&gt;</span> t.tagName == <span class="hljs-string">&quot;SHADER-UNIFORM&quot;</span>);
+    <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> uniform <span class="hljs-keyword">of</span> uniforms) {
+      <span class="hljs-keyword">var</span> name = uniform.getAttribute(<span class="hljs-string">&quot;name&quot;</span>);
+      <span class="hljs-keyword">var</span> values = uniform.getAttribute(<span class="hljs-string">&quot;values&quot;</span>).split(<span class="hljs-regexp">/, */</span>).map(<span class="hljs-built_in">Number</span>);
+      <span class="hljs-built_in">this</span>.setUniform(name, ...values);
+    }
+  }
+
+  <span class="hljs-function"><span class="hljs-title">onIntersection</span>(<span class="hljs-params">[e]</span>)</span> {
+    <span class="hljs-built_in">this</span>.visible = e.isIntersecting;
+    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.visible) <span class="hljs-built_in">this</span>.tick();
+    <span class="hljs-comment">// seems to prevent cyan flash on some GPUs</span>
+    <span class="hljs-built_in">this</span>.elements.canvas.style.opacity = <span class="hljs-built_in">this</span>.visible ? <span class="hljs-number">1</span> : <span class="hljs-number">0</span>;
+  }
+
+  <span class="hljs-comment">// render loop with visibility/readiness guards</span>
+  <span class="hljs-function"><span class="hljs-title">tick</span>(<span class="hljs-params">t</span>)</span> {
+    <span class="hljs-keyword">if</span> (!<span class="hljs-built_in">this</span>.visible) <span class="hljs-keyword">return</span>;
+    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.raf) cancelAnimationFrame(<span class="hljs-built_in">this</span>.raf);
+    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.gl.program) <span class="hljs-built_in">this</span>.render(t);
+    <span class="hljs-built_in">this</span>.raf = requestAnimationFrame(<span class="hljs-built_in">this</span>.tick);
+  }
+
+  <span class="hljs-function"><span class="hljs-title">render</span>(<span class="hljs-params">t</span>)</span> {
+    <span class="hljs-keyword">var</span> { buffer, gl } = <span class="hljs-built_in">this</span>;
+    <span class="hljs-comment">// require setShader() to be called</span>
+    <span class="hljs-keyword">if</span> (!gl.program) <span class="hljs-keyword">return</span>;
+    <span class="hljs-keyword">var</span> canvas = gl.canvas;
+    <span class="hljs-comment">// set up our two triangles</span>
+    gl.enableVertexAttribArray(gl.uniforms.coords);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, <span class="hljs-keyword">new</span> <span class="hljs-built_in">Float32Array</span>(POLYS), gl.STATIC_DRAW);
+    gl.vertexAttribPointer(gl.uniforms.coords, <span class="hljs-number">2</span>, gl.FLOAT, <span class="hljs-literal">false</span>, <span class="hljs-number">0</span>, <span class="hljs-number">0</span>);
+    <span class="hljs-comment">// add a time uniform, with some offset to starting at 0</span>
+    gl.uniform1f(gl.uniforms.u_time, t + <span class="hljs-number">12581372.5324</span>);
+    <span class="hljs-comment">// adjust to the current canvas size and set resolution uniform</span>
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    gl.viewport(<span class="hljs-number">0</span>, <span class="hljs-number">0</span>, canvas.width, canvas.height);
+    gl.uniform2f(gl.uniforms.u_resolution, canvas.width, canvas.height);
+    <span class="hljs-comment">// clear canvas and render</span>
+    gl.clearColor(<span class="hljs-number">0</span>, <span class="hljs-number">1</span>, <span class="hljs-number">1</span>, <span class="hljs-number">1</span>);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLES, <span class="hljs-number">0</span>, POLYS.length / <span class="hljs-number">2</span>);
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">template</span>() {
+    <span class="hljs-keyword">return</span> <span class="hljs-string">`
+      &lt;style&gt;
+      :host {
+        width: 300px;
+        height: 150px;
+        display: block;
+        position: relative;
+      }
+
+      canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+      &lt;/style&gt;
+      &lt;canvas as=&quot;canvas&quot;&gt;&lt;/canvas&gt;
+    `</span>
+  }
+}
+
+ShaderBox.define(<span class="hljs-string">&quot;shader-box&quot;</span>);</pre></code>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="cs-autocomplete.html"> &laquo; Autocomplete input</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="index.html"> media-controls &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>

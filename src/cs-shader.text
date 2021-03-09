@@ -1,0 +1,16 @@
+@metadata...
+title: WebGL shader preview
+type: chapter
+...metadata
+
+WebGL itself is not a very good API &mdash; conceptually it follows directly from the OpenGL ES API, which was written in C and defined as a state machine. It's familiar to graphics programmers, and that's about all it has going for it. Which is a shame, since hidden behind that intimidating facade is a fascinating creative environment: fragment shaders.
+
+Fragment shaders are small programs that run for every pixel in a WebGL polygon. They're typically used to do things like texturing and lighting within a 3D scene. Your video card is extremely good at running thousands (or even million) of these programs in parallel, with certain tradeoffs: they can't directly share information with each other, and they can't retain state between executions.
+
+Despite these constraints, you can do incredible things just with a fragment shader and some basic math (Inigo Quilez is a <a href="https://www.youtube.com/watch?v=8--5LwHRhjk">well-known master</a> of this). You can see more examples at <a href="https://www.shadertoy.com/">Shadertoy</a>, and learn how to write your own from <a href="https://thebookofshaders.com/">The Book of Shaders</a>. But be careful: like a great puzzle game, fragment shaders can be addictive!
+
+I've been hooked for a few years now, but while I love writing shaders (I even made <a href="https://github.com/thomaswilburn/shadertab">a browser extension</a> that lets you fiddle with them in the new tab page) I don't love the WebGL boilerplate. What I really wanted was an element that would let me load a fragment shader and display it the same way that I would an image: set the "src" attribute and see the results. For an NPR project that needed some visual spice, I finally create it via this custom element.
+
+@subhead `shader-box.js`
+
+@includeCode(js) examples/shader-box.js
