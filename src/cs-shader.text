@@ -53,7 +53,22 @@ One thing that can trip you up is that aborting a fetch is treated as a thrown e
 
 This element has a couple of observers connected to it, both set up in the constructor. It uses an Intersection Observer to track its own visibility, and only renders if it's actually in view. WebGL shaders do not have to be strenuous on modern hardware, but there's no reason to do extra work &mdash; and since fragment shaders don't have any memory between executions, we don't have to worry about losing anything while the render loop is "paused."
 
-We also define a small domain-specific language for this element, currently composed only of `<shader-uniform>` elements. These set "uniforms" within the fragment shader, which is WebGL jargon for global values accessible to all fragments. A Mutation Observer watches the custom element and its subtree for node and attribute changes, and runs our `onMutation()` method if it sees them. Since there can be multiple uniforms per shader and they can have any name you want, it's easier to represent these as child elements than as attributes on the `<shader-box>` itself.
+We also define a small domain-specific language for this element, currently composed only of `<shader-uniform>` elements. These set "uniforms" within the fragment shader, which is WebGL jargon for global values accessible to all fragments. A Mutation Observer watches the custom element and its subtree for node and attribute changes, and runs our `onMutation()` method if it sees them. 
+
+Since there can be multiple uniforms per shader and they can have any name you want, it's easier to represent these as child elements than as attributes on the `<shader-box>` itself. In the demo above, we're just passing a single `u_color` uniform through, which tweaks the color of the "lava lamp" animation. 
+
+@codeblock(html)...
+<shader-box class="demo-shader" src="./static/lava.glsl">
+  <shader-uniform
+    name="u_color"
+    values="0.3,0.6,0.6"
+  ></shader-uniform>
+</shader-box>
+...codeblock
+
+Using the dev tools, you can update the values to see it shift (the colors are an RGB triplet with values from 0 to 1).
+
+
 
 @subsubhead Future improvements
 
@@ -63,4 +78,4 @@ Our WebGL code is not quite the same as a media tag &mdash; for one thing, it do
 
 In terms of WebGL, the other natural extension point would be to expand the range of inputs available via child elements. In addition to the uniform values currently supported, we could automatically load `<img>` tags as textures, or even feed in `<video>` and `<audio>` as buffers for shaders to access.
 
-A richer set of tools exposed through a domain-specific language isn't just useful for fragment shader developers. It also expands the potential uses of this element. For example, a shader can easily replicate filters from something like Photoshop or Premiere. By providing a basic manipulation shader and a comprehensive DSL for inputs, it would be possible for people who only know HTML to embed a video with tweakable effects applied.
+A richer set of tools exposed through a domain-specific language isn't just useful for fragment shader developers. It also expands the potential uses of this element. For example, a shader can easily replicate filters from something like Photoshop or Premiere. By providing a basic manipulation shader and a comprehensive DSL for inputs, it would be possible for people who only know HTML to embed a video with tweakable effects applied. 
