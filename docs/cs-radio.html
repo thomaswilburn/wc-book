@@ -1,0 +1,101 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Podcast client</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="cs-radio chapter">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="cs-media.html"> &laquo; Media controller</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="index.html"> 2020 Primary Results &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    
+  </aside>
+  <h1>Podcast client</h1>
+<p>Most of the samples I've talked about so far have been pretty self-contained. That's the sweet spot for a lot of web components: self-sufficient units of UI that don't need to coordinate across an entire application. Since custom elements don't provide a method of managing application state, or binding data to a rendered template, it doesn't compete directly with frameworks out of the box &mdash; it's more complimentary. But can you build a complete web app just using web components and vanilla JavaScript?</p>
+<p>In 2018, I decided to find out. I had started listening to a lot more podcasts, and I wanted a client that would let me listen to them without having to worry about tracking or device memory. Besides, I thought, a podcast is just an RSS feed full of audio files, it feels silly to install a native application to access that when a browser is right there.</p>
+<p>Unlike the other samples, <a href="https://github.com/thomaswilburn/radio-v2">Radio</a> is big enough that I'm not going to try to walk through the source code here directly. However, I'll link to the component parts as they're discussed, and you can try a working version of the app <a href="https://radio-v2.glitch.me/">on Glitch</a> (note that it'll look a little weird in a desktop viewport, since it's built for mobile and narrow PWA usage).</p>
+<h2 id="high-level-architecture">High-level architecture</h2>
+<p>Radio is built in a kind of very loose Model-ViewController structure. At the center is <a href="https://github.com/thomaswilburn/radio-v2/blob/master/app.js">a <var>Radio</var> singleton</a> that provides access to shared configuration, as well as a central event bus for communication between components. Elements import the "app.js" module to get access to that singleton. There's not a strong central process &mdash; the application is basically a conversation between the different modules in the page.</p>
+<p>To the extent that there is centralized state in Radio, it's stored in IndexedDB using a <a href="https://github.com/thomaswilburn/radio-v2/blob/master/lib/storage.js">Table key/value store</a>. Tables wrap up database transactions as async function calls, and they also offer events for when items are added, removed, or changed inside the store. The main app singleton has a <var>feeds</var> Table that stores subscriptions, including metadata about when they were last requested, last played, and when the subscription was added (for ordering purposes).</p>
+<p>The top-level component heirarchy is a <var>&lt;menu-bar&gt;</var> (which largely just dispatches action events for other components to handle), a <var>&lt;podcast-list&gt;</var> that hosts feed subscriptions, and an <var>&lt;audio-player&gt;</var> that's hidden by default. When the page boots up, <var>&lt;podcast-list&gt;</var> gets the list of subscriptions from the app, and creates <var>&lt;podcast-feed&gt;</var> elements for each one. In turn, those elements request the actual feeds, and then render <var>&lt;podcast-episode&gt;</var> elements for each one.</p>
+<h2 id="managing-component-dependencies">Managing component dependencies</h2>
+<p>The base class for components in Radio is largely similar to the one we've been using throughout this book, or that I use at NPR, with one main exception. Radio is not built using a JavaScript bundler &mdash; it's just using raw ES modules &mdash; which means that it can't easily <var>import</var> or <var>require()</var> HTML templates. To keep things ergonomic, we still store templates in their own HTML files, and the base class's static <var>define()</var> method takes an additional argument with the filename to load:</p>
+<code class="language-js"><pre><span class="hljs-keyword">static</span> <span class="hljs-keyword">async</span> <span class="hljs-function"><span class="hljs-title">define</span>(<span class="hljs-params">tag, template</span>)</span> {
+  <span class="hljs-keyword">if</span> (template) {
+    <span class="hljs-keyword">var</span> response = <span class="hljs-keyword">await</span> fetch(template);
+    <span class="hljs-keyword">var</span> text = <span class="hljs-keyword">await</span> response.text();
+    <span class="hljs-built_in">this</span>.template = text;
+  }
+  <span class="hljs-keyword">try</span> {
+    <span class="hljs-built_in">window</span>.customElements.define(tag, <span class="hljs-built_in">this</span>);
+  } <span class="hljs-keyword">catch</span> (err) {
+    <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Unable to (re)defined <span class="hljs-subst">${tag}</span>: <span class="hljs-subst">${err.message}</span>`</span>);
+  }
+}</pre></code>
+<p>This creates a fun race condition: while ES modules normally guarantee that values are exported and ready, the template <var>fetch()</var> means an element may not be actually defined for the page until many milliseconds after its module is imported.</p>
+<p>As long as you're communicating via attributes, this probably doesn't matter. But for any more complex relationships between elements, it causes problems. To make sure that the browser knows how to upgrade an element before we use it, many portions of Radio are gated behind <var>customElements.whenDefined()</var>, which returns a promise when a tag is ready to use:</p>
+<code class="language-js"><pre><span class="hljs-keyword">await</span> customElements.whenDefined(<span class="hljs-string">&quot;podcast-feed&quot;</span>);</pre></code>
+<h2 id="template-loops">Template loops</h2>
+<p>Shadow templates and element lookups, as defined by our base class, handle a lot of static UI functionality. But what about when we need to repeat an element? For example, how do we easily make sure that our <var>&lt;podcast-feeds&gt;</var> display the right <var>&lt;podcast-episode&gt;</var> elements, especially once search is introduced?</p>
+<p>To handle this, Radio uses a utility function called <var>matchData()</var> that binds an array of data to the children of a given container. Using a key property, it automatically detects additions/removals/rearrangements when a new array is passed in and updates the element to match. It's not short, but <a href="https://github.com/thomaswilburn/radio-v2/blob/bd51e873179c913c6727aca94fc6b0d4b75860d6/lib/common.js#L1">it's probably shorter</a> than you'd think it would be. The heuristic boils down to:</p>
+<ul>
+<li>Create <var>Map</var> lookups from elements to data items, and vice versa</li>
+<li>Remove and add elements to align with the data, using the provided tag name or factory function for any new elements that need to be created</li>
+<li>Sort the elements to match the order in the data array</li>
+<li>Return a zipped array of <var>[data, element]</var> pairs, in case we need to do additional operations on the result</li>
+</ul>
+<p>In practice, Radio uses slots for any area where it is binding arrays to the DOM, so using <var>matchData()</var> looks something like this code from <var>&lt;podcast-list&gt;</var>:</p>
+<code class="language-js"><pre><span class="hljs-comment">// get subscriptions from the app singleton</span>
+<span class="hljs-keyword">var</span> feeds = <span class="hljs-keyword">await</span> app.feeds.getAll();
+feeds = feeds.sort(<span class="hljs-function">(<span class="hljs-params">a, b</span>) =&gt;</span> a.subscribed - b.subscribed);
+<span class="hljs-comment">// make sure &lt;podcast-feed&gt; is ready</span>
+<span class="hljs-keyword">await</span> customElements.whenDefined(<span class="hljs-string">&quot;podcast-feed&quot;</span>);
+<span class="hljs-comment">// map the subscription items to child elements</span>
+<span class="hljs-comment">// the factory function generates &lt;podcast-feed&gt;s as necessary</span>
+<span class="hljs-comment">// and sets the feed URL on them</span>
+matchData(<span class="hljs-built_in">this</span>, feeds, <span class="hljs-string">&quot;url&quot;</span>, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">item</span>) </span>{
+  <span class="hljs-keyword">var</span> list = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">&quot;podcast-feed&quot;</span>);
+  list.src = item.url;
+  <span class="hljs-keyword">return</span> list;
+});</pre></code>
+<p>It's not the world's prettiest loop construct. On the other hand, I'm not sure it's any worse than React's reliance on <var>map()</var> for template iteration. A lightweight template/DOM diff library would be more ergonomic, at the cost of needing to load it from a CDN or inject it into this project.</p>
+<h2 id="components-in-more-detail">Components in more detail</h2>
+<h3><var>&lt;audio-player&gt;</var></h3>
+<p>The <a href="https://github.com/thomaswilburn/radio-v2/blob/master/audio-player.js"><var>&lt;audio-player&gt;</var> tag</a> should look pretty familiar after a lot of the examples in this book. It has one of the more complicated <a href="https://github.com/thomaswilburn/radio-v2/blob/master/audio-player.html">shadow DOM templates</a>, since it needs to update to match the state of the <var>&lt;audio&gt;</var> tag that's doing the actual playback. Requests to play a podcast come in via the app's event bus, instead of requiring the audio tag to listen for events bubbling up through the DOM.</p>
+<p><var>&lt;audio-player&gt;</var> also maintains its own Table store for the currently-playing file. My phone is old and not particularly hearty, which means that the browser gets killed in the background fairly frequently if it's not actively playing audio, and I got tired of having to remember where I was when that happened. Every ten seconds or so, the player stores the current file and its progress &mdash; on restart, it checks the Table and reloads its state if there was an active track.</p>
+<h3><var>&lt;podcast-feed&gt;</var></h3>
+<p>If there's a single place where I will refactor Radio at some point, it's the <a href="https://github.com/thomaswilburn/radio-v2/blob/master/podcast-feed.js"><var>&lt;podcast-feed&gt;</var></a> component. The <var>&lt;podcast-list&gt;</var> component creates these to match the contents of the "feeds" Table, and they're arguably responsible for too much:</p>
+<ul>
+<li>Loading the RSS from the endpoint, either via a direct request or (as a fallback on CORS failure) from a local proxy server</li>
+<li>Parsing that RSS into a set of JavaScript objects, including the overall metadata for the feed and the individual episodes</li>
+<li>Creating <var>&lt;podcast-episode&gt;</var> child elements to display the actual listings, as well as for search results within a feed</li>
+<li>Managing the metadata of the feed (renaming it to a user-defined string, figuring out if there are new items)</li>
+<li>Dispatching the actual playback request events for the <var>&lt;audio-player&gt;</var></li>
+</ul>
+<p>At some point, I'll move a lot of the networking and data processing into a library module instead, which means we can probably get this component under 150 lines of code, and most of that will actually be rendering and UI instead of XML wrangling.</p>
+<p>When rendering the actual episodes, a mistake I made early on was to specify the title/description for each episode as attributes on the <var>&lt;podcast-episode&gt;</var> components. This was cumbersome, to say the least, because some podcasts practically write novels in their episode descriptions. The modern version uses named slots to inject that content instead, which makes the actual <var>&lt;podcast-episode&gt;</var> elements <a href="https://github.com/thomaswilburn/radio-v2/blob/master/podcast-episode.js">practically empty shells</a>.</p>
+<h2 id="lessons-learned">Lessons learned</h2>
+<p>Mentally, I often think of Radio as a kind of quirky personal project &mdash; it has one real user (me) who is extremely technical &mdash; and so I'm always pleasantly surprised when I go back to look through it. Certainly as a real-world demo it beats TodoMVC.</p>
+<p>The most notable architectural weak point in the application (other than the over-stuffed feed component) is the central event bus, and the confusion between that and regular DOM events. We need the bus, unfortunately, because it's not always feasible to use the DOM to communicate between components at different levels or page sections. For example, we want to let <var>&lt;podcast-episode&gt;</var> elements know about the currently-playing audio file, so they can update their "play" button to be "playing" instead. But there's no good way to send events <i>down</i> the tree, from the <var>&lt;audio-player&gt;</var> to the individual episode components. The event bus solves that problem &mdash; but if you have a central communication channel, why bother with DOM events?</p>
+<p>Deciding between those two takes discipline. DOM events are great when the flow is targeted and depends on the relationship between elements &mdash; a <var>&lt;podcast-episode&gt;</var> sends an event up to the <var>&lt;podcast-feed&gt;</var>, which decorates it with metadata about the overall feed and then forwards it to the audio player. That would be a lot more complicated if the play button triggered a broadcast to every other component in the application.</p>
+<p>Ultimately, I think Radio does demonstrate that it's possible to build a complete application using web components, and eliminating the framework means saving a significant portion of your JavaScript budget for more functionality. However, it also shows how many gaps need to be filled to make that possible, either using homegrown solutions (as I've done here) or with microlibraries (Redux or Vuex for state, Lit-HTML or hyperHTML for templating).</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="cs-media.html"> &laquo; Media controller</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="index.html"> 2020 Primary Results &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>
