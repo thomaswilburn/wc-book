@@ -1,0 +1,295 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Media controller</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="cs-media chapter">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="cs-shader.html"> &laquo; WebGL shader preview</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="index.html"> Radio &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    
+  </aside>
+  <h1>Media controller</h1>
+<p>The media elements added in HTML5, <var>&lt;audio&gt;</var> and <var>&lt;video&gt;</var>, offer built-in UI via an attribute toggle. However, that UI isn't customizable in any real sense &mdash; certainly not in a cross-browser way. If you want to create a styled play button, you need to implement it yourself.</p>
+<p>I built this element for a multimedia story at NPR. Being a radio organization, we've done lots of audio-centric projects before &mdash; in my <a href="http://blog.apps.npr.org/2019/05/17/white-lies.html">retrospective for <i>White Lies</i></a>, for example, you can see sample code for a player that loaded files spread throughout the story (and read about how making it work on iOS poses an extra challenge). However, one of the nice things about a custom element is that it gives you more of a building block: instead of needing to build a monolithic player that runs across a whole presentation, I can instead build a single player control button as a discrete unit, then wire those pieces together as needed.</p>
+<p>This component was built in our <a href="https://github.com/nprapps/interactive-template">interactive template</a>, which bundles JavaScript using CommonJS modules. That also allows us to load HTML templates from separate files using <var>require()</var>, which is handy &mdash; no long, clumsy string literals here. Tools like WebPack and Rollup also let you do this from ES6 import statements, and I highly recommend working out how. Otherwise, I've built tools that use <var>fetch()</var> and the <a href="https://developer.mozilla.org/en-US/docs/Web/API/CustomElementRegistry/whenDefined"><var>customElements.whenDefined()</var></a> function to support async component loading, but it definitely feels less seamless. If only HTML imports were still an option...</p>
+<h2 id="media-controlsjs"><var>media-controls.js</var></h2>
+<code class="language-js"><pre><span class="hljs-keyword">var</span> CustomElement = <span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;./customElement&quot;</span>);
+<span class="hljs-keyword">var</span> { watchSelector, unwatchSelector } = <span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;./watchSelector&quot;</span>);
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MediaControls</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">CustomElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+    <span class="hljs-built_in">this</span>.media = <span class="hljs-literal">null</span>;
+    <span class="hljs-built_in">this</span>.elements.playButton.addEventListener(<span class="hljs-string">&quot;click&quot;</span>, <span class="hljs-built_in">this</span>.onClickedPlay);
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">observedAttributes</span>() {
+    <span class="hljs-keyword">return</span> [<span class="hljs-string">&quot;for&quot;</span>, <span class="hljs-string">&quot;src&quot;</span>];
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">mirroredProps</span>() {
+    <span class="hljs-keyword">return</span> [<span class="hljs-string">&quot;for&quot;</span>, <span class="hljs-string">&quot;src&quot;</span>];
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">boundMethods</span>() {
+    <span class="hljs-keyword">return</span> [
+      <span class="hljs-string">&quot;onWatch&quot;</span>,
+      <span class="hljs-string">&quot;onMediaUpdate&quot;</span>,
+      <span class="hljs-string">&quot;onClickedPlay&quot;</span>
+    ];
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">subscriptions</span>() {
+    <span class="hljs-keyword">return</span> [
+      <span class="hljs-string">&quot;play&quot;</span>,
+      <span class="hljs-string">&quot;pause&quot;</span>,
+      <span class="hljs-string">&quot;timeupdate&quot;</span>,
+      <span class="hljs-string">&quot;canplaythrough&quot;</span>
+    ]
+  }
+
+  <span class="hljs-function"><span class="hljs-title">attributeChangedCallback</span>(<span class="hljs-params">attr, was, value</span>)</span> {
+    <span class="hljs-keyword">switch</span> (attr) {
+
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;for&quot;</span>:
+        <span class="hljs-keyword">if</span> (was) unwatchSelector(<span class="hljs-string">`[id=&quot;<span class="hljs-subst">${was}</span>&quot;]`</span>, <span class="hljs-built_in">this</span>.onWatch);
+        <span class="hljs-keyword">if</span> (value) watchSelector(<span class="hljs-string">`[id=&quot;<span class="hljs-subst">${value}</span>&quot;]`</span>, <span class="hljs-built_in">this</span>.onWatch)
+        <span class="hljs-keyword">break</span>;
+
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;src&quot;</span>:
+        <span class="hljs-keyword">var</span> media = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">&quot;audio&quot;</span>);
+        media.src = value;
+        <span class="hljs-built_in">this</span>.connect(media);
+        <span class="hljs-keyword">break</span>;
+
+    }
+  }
+
+  <span class="hljs-function"><span class="hljs-title">connect</span>(<span class="hljs-params">element</span>)</span> {
+    <span class="hljs-keyword">if</span> (element == <span class="hljs-built_in">this</span>.media) <span class="hljs-keyword">return</span>;
+    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.media) {
+      <span class="hljs-built_in">this</span>.disconnect();
+    }
+    <span class="hljs-comment">// subscribe to events</span>
+    <span class="hljs-built_in">this</span>.media = element;
+    <span class="hljs-keyword">if</span> (element) {
+      <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> e <span class="hljs-keyword">of</span> MediaControls.subscriptions) {
+        element.addEventListener(e, <span class="hljs-built_in">this</span>.onMediaUpdate);
+      }
+    }
+  }
+
+  <span class="hljs-function"><span class="hljs-title">disconnect</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-keyword">if</span> (!<span class="hljs-built_in">this</span>.media) <span class="hljs-keyword">return</span>;
+    <span class="hljs-comment">// unsubscribe from events</span>
+    <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> e <span class="hljs-keyword">of</span> MediaControls.subscriptions) {
+      <span class="hljs-built_in">this</span>.media.removeEventListener(e, <span class="hljs-built_in">this</span>.onMediaUpdate);
+    }
+    <span class="hljs-built_in">this</span>.media = <span class="hljs-literal">null</span>;
+  }
+
+  <span class="hljs-function"><span class="hljs-title">onWatch</span>(<span class="hljs-params">element</span>)</span> {
+    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.src) <span class="hljs-keyword">return</span>;
+    <span class="hljs-built_in">this</span>.connect(element);
+  }
+
+  <span class="hljs-function"><span class="hljs-title">onMediaUpdate</span>(<span class="hljs-params">e</span>)</span> {
+    <span class="hljs-keyword">var</span> { duration, currentTime, paused } = <span class="hljs-built_in">this</span>.media;
+    <span class="hljs-keyword">var</span> ratio = currentTime / duration;
+    <span class="hljs-keyword">var</span> { labels, progress, playIcon, pauseIcon } = <span class="hljs-built_in">this</span>.elements;
+    <span class="hljs-keyword">try</span> {
+      <span class="hljs-keyword">var</span> pLength = <span class="hljs-built_in">Math</span>.ceil(progress.getTotalLength());
+      <span class="hljs-keyword">var</span> pDash = <span class="hljs-built_in">Math</span>.ceil(ratio * pLength);
+      progress.style.strokeDasharray = [pLength, pLength].join(<span class="hljs-string">&quot; &quot;</span>);
+      progress.style.strokeDashoffset = pDash;
+      <span class="hljs-keyword">if</span> (paused) {
+        playIcon.style.display = <span class="hljs-string">&quot;&quot;</span>;
+        pauseIcon.style.display = <span class="hljs-string">&quot;none&quot;</span>;
+      } <span class="hljs-keyword">else</span> {
+        playIcon.style.display = <span class="hljs-string">&quot;none&quot;</span>;
+        pauseIcon.style.display = <span class="hljs-string">&quot;&quot;</span>;
+      }
+    } <span class="hljs-keyword">catch</span> (err) {
+      <span class="hljs-comment">// SVG code will fail if the button isn&#x27;t immediately visible, it&#x27;s fine.</span>
+    }
+  }
+
+  <span class="hljs-function"><span class="hljs-title">onClickedPlay</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-keyword">if</span> (!<span class="hljs-built_in">this</span>.media) <span class="hljs-keyword">return</span>;
+    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">this</span>.media.paused) {
+      <span class="hljs-built_in">this</span>.media.currentTime = <span class="hljs-number">0</span>;
+      <span class="hljs-built_in">this</span>.media.play();
+      events.fire(<span class="hljs-string">&quot;media-play&quot;</span>, <span class="hljs-built_in">this</span>.media);
+    } <span class="hljs-keyword">else</span> {
+      <span class="hljs-built_in">this</span>.media.currentTime = <span class="hljs-number">0</span>;
+      <span class="hljs-built_in">this</span>.media.pause();
+    }
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">template</span>() {
+    <span class="hljs-keyword">return</span> <span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;./_media-controls.html&quot;</span>);
+  }
+
+}
+
+MediaControls.define(<span class="hljs-string">&quot;media-controls&quot;</span>);</pre></code>
+<h2 id="watchselectorjs"><var>watchSelector.js</var></h2>
+<code class="language-js"><pre><span class="hljs-keyword">var</span> watchList = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Map</span>();
+
+<span class="hljs-keyword">var</span> glance = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">watch</span>) </span>{
+  <span class="hljs-keyword">var</span> result = <span class="hljs-built_in">document</span>.querySelector(watch.selector);
+  watch.callbacks.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">c</span>) </span>{
+    <span class="hljs-keyword">if</span> (c.previous == result) <span class="hljs-keyword">return</span>;
+    c(result);
+    c.previous = result;
+  })
+};
+
+<span class="hljs-keyword">var</span> observer = <span class="hljs-keyword">new</span> MutationObserver(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">mutations</span>) </span>{
+  watchList.forEach(glance);
+});
+
+observer.observe(<span class="hljs-built_in">document</span>.body, {
+  <span class="hljs-attr">subtree</span>: <span class="hljs-literal">true</span>,
+  <span class="hljs-attr">childList</span>: <span class="hljs-literal">true</span>,
+  <span class="hljs-attr">attributeFilter</span>: [<span class="hljs-string">&quot;id&quot;</span>]
+});
+
+<span class="hljs-keyword">var</span> watchSelector = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">selector, callback</span>) </span>{
+  <span class="hljs-keyword">var</span> watch = watchList.get(selector) || { selector, <span class="hljs-attr">callbacks</span>: [] };
+  <span class="hljs-keyword">if</span> (watch.callbacks.includes(callback)) <span class="hljs-keyword">return</span>;
+  watch.callbacks.push(callback);
+  <span class="hljs-keyword">try</span> {
+    glance(watch);
+    watchList.set(selector, watch);
+  } <span class="hljs-keyword">catch</span> (err) {
+    <span class="hljs-built_in">console</span>.error(err);
+  }
+};
+
+<span class="hljs-keyword">var</span> unwatchSelector = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">selector, callback</span>) </span>{
+  <span class="hljs-keyword">var</span> watching = watchList.get(selector);
+  <span class="hljs-keyword">if</span> (!watching) <span class="hljs-keyword">return</span>;
+  watching.callbacks = watching.callbacks.filter(<span class="hljs-function"><span class="hljs-params">c</span> =&gt;</span> c != callback);
+  <span class="hljs-keyword">if</span> (!watching.callbacks.length) {
+    watchList.delete(selector);
+  }
+};
+
+<span class="hljs-built_in">module</span>.exports = { watchSelector, unwatchSelector };</pre></code>
+<h2 id="_media-controlshtml"><var>_media-controls.html</var></h2>
+<code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">style</span>&gt;</span><span class="css">
+<span class="hljs-selector-pseudo">:host</span> {
+  --<span class="hljs-selector-tag">button</span>-fg: currentColor;
+  --<span class="hljs-selector-tag">button</span>-bg: transparent;
+  <span class="hljs-attribute">display</span>: block;
+  <span class="hljs-attribute">font-family</span>: inherit;
+}
+
+<span class="hljs-selector-class">.row</span> {
+  <span class="hljs-attribute">display</span>: flex;
+  <span class="hljs-attribute">align-items</span>: center;
+  <span class="hljs-attribute">justify-content</span>: flex-start;
+}
+
+<span class="hljs-selector-tag">button</span><span class="hljs-selector-class">.play-pause</span> {
+  <span class="hljs-attribute">background</span>: transparent;
+  <span class="hljs-attribute">border</span>: none;
+  <span class="hljs-attribute">color</span>: inherit;
+}
+
+<span class="hljs-selector-class">.play-pause</span> svg {
+  <span class="hljs-attribute">width</span>: <span class="hljs-number">64px</span>;
+  <span class="hljs-attribute">height</span>: <span class="hljs-number">64px</span>;
+}
+
+<span class="hljs-selector-class">.border</span> {
+  fill: <span class="hljs-built_in">var</span>(--button-bg);
+  stroke: <span class="hljs-built_in">var</span>(--button-bg);
+  stroke-<span class="hljs-attribute">width</span>: <span class="hljs-number">1px</span>;
+  stroke-dasharray: <span class="hljs-number">1</span> <span class="hljs-number">2</span>;
+}
+
+<span class="hljs-selector-class">.play-pause</span> <span class="hljs-selector-class">.progress</span> {
+  fill: none;
+  stroke: <span class="hljs-built_in">var</span>(--button-fg);
+  stroke-<span class="hljs-attribute">width</span>: <span class="hljs-number">2px</span>;
+  <span class="hljs-attribute">transform-origin</span>: center;
+  <span class="hljs-attribute">transform</span>: <span class="hljs-built_in">rotate</span>(-<span class="hljs-number">90deg</span>);
+}
+
+<span class="hljs-selector-class">.play-pause</span> <span class="hljs-selector-class">.icon</span> {
+  fill: <span class="hljs-built_in">var</span>(--button-fg);
+}
+
+<span class="hljs-selector-class">.labels</span> {
+  <span class="hljs-attribute">max-width</span>: <span class="hljs-built_in">var</span>(--label-width, auto);
+  <span class="hljs-attribute">font-size</span>: <span class="hljs-number">20px</span>;
+  <span class="hljs-attribute">padding</span>: <span class="hljs-number">4px</span>;
+  <span class="hljs-attribute">text-align</span>: left;
+}
+
+</span><span class="hljs-tag">&lt;/<span class="hljs-name">style</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;player&quot;</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;row&quot;</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">button</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;play-pause&quot;</span> <span class="hljs-attr">as</span>=<span class="hljs-string">&quot;playButton&quot;</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-name">svg</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;play-pause&quot;</span> <span class="hljs-attr">viewBox</span>=<span class="hljs-string">&quot;0 0 32 32&quot;</span> <span class="hljs-attr">width</span>=<span class="hljs-string">&quot;32&quot;</span> <span class="hljs-attr">height</span>=<span class="hljs-string">&quot;32&quot;</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">circle</span> <span class="hljs-attr">cx</span>=<span class="hljs-string">16</span> <span class="hljs-attr">cy</span>=<span class="hljs-string">16</span> <span class="hljs-attr">r</span>=<span class="hljs-string">15</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;border&quot;</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">circle</span> <span class="hljs-attr">cx</span>=<span class="hljs-string">16</span> <span class="hljs-attr">cy</span>=<span class="hljs-string">16</span> <span class="hljs-attr">r</span>=<span class="hljs-string">15</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;progress&quot;</span> <span class="hljs-attr">as</span>=<span class="hljs-string">&quot;progress&quot;</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">path</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;play icon&quot;</span> 
+          <span class="hljs-attr">as</span>=<span class="hljs-string">&quot;playIcon&quot;</span>
+          <span class="hljs-attr">d</span>=<span class="hljs-string">&quot;M12,9 L23,16 L12,23 Z&quot;</span>
+        /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">path</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;pause icon&quot;</span> 
+          <span class="hljs-attr">as</span>=<span class="hljs-string">&quot;pauseIcon&quot;</span> 
+          <span class="hljs-attr">style</span>=<span class="hljs-string">&quot;display: none&quot;</span> 
+          <span class="hljs-attr">d</span>=<span class="hljs-string">&quot;M11,9 L14,9 L14,23 L11,23 L11,9 M18,9 L21,9 L21,23 L18,23 L18,9&quot;</span>
+        /&gt;</span>
+      <span class="hljs-tag">&lt;/<span class="hljs-name">svg</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">button</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;labels&quot;</span> <span class="hljs-attr">as</span>=<span class="hljs-string">&quot;labels&quot;</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-name">slot</span> <span class="hljs-attr">as</span>=<span class="hljs-string">&quot;slot&quot;</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">slot</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span></pre></code>
+<h2 id="notes">Notes</h2>
+<h3>Associated media elements</h3>
+<p>This element was the first real use of the association and control pattern I've written about in this book. It mimics the "for" attribute that's used on labels, or the way "aria-activedescendant" works &mdash; set the attribute to the ID of the media element, and our controller will automatically connect to it to trigger playback and show the current progress.</p>
+<p>Using the <var>watchSelector</var> module means that we don't have to worry about whether the ID was set first, or whether the element exists when we set the "for" attribute. If the target element is created or ID'd after initialization, we'll still be notified, and the <var>connect()</var> method will be called to set up the association. You can also call this method manually, without setting the attribute &mdash; that proves useful if you're nesting this component into another UI component, as I later did for a <var>&lt;simple-video&gt;</var> player. In that case, because the element placed the control and video elements in shadow DOM, we couldn't search the document by ID &mdash; but we also didn't need to, since we had references to them and could simply <var>connect()</var> them in our outer component's constructor.</p>
+<p>If you don't want to create or control a media element, you just want to play an audio file, you can also set the "src" attribute, and the element will host its own <var>&lt;audio&gt;</var>. This isn't something we used much, but it's a nice way to quickly test something in the page.</p>
+<h3>Handling media events</h3>
+<p>Media events can be frustrating to handle at first, especially because they don't bubble like normal DOM events do. You have to add listeners directly to the <var>&lt;audio&gt;</var> or <var>&lt;video&gt;</var> element. However, once you get the hang of it, these events are actually often very easily to handle for the purposes of display, because you don't need to maintain any local state: you can get all the information you need directly from the media element.</p>
+<p>Accordingly, our <var>onMediaUpdate()</var> is called for almost any media event ("play", "pause", "timeupdate", or "canplaythrough", in this case). Regardless of the type, we set our UI to reflect the current state of the media element:</p>
+<ul>
+<li>We get the current progress ratio by pulling the target's <var>currentTime</var> and <var>duration</var> properties and doing a little math. In this case, we're creating a circular progress indicator using the <a href="https://jakearchibald.com/2013/animated-line-drawing-svg/">animated SVG path</a> technique, but it could just as easily be a straightforward progress bar.</li>
+<li>If the element is paused, hide the "pause" icon. If it's playing, hide the "play" icon and show "pause" instead.</li>
+</ul>
+<p>In <a href="https://github.com/thomaswilburn/radio-v2/blob/master/audio-player.js#L92">a more robust player</a>, you might add indicators for seeking or stalled downloads, or output the time as text. But the more you leave state up to the media element, instead of trying to track it inside your component, the better off you'll be. Treat the DOM as the source of truth.</p>
+<h3>Style hooks</h3>
+<p>For this particular component, we're using two CSS variables to expose styling from outside. By setting <var>--button-bg</var> or <var>--button-fg</var> on a rule that targets our media elements, you can change them to whatever theme colors you want.</p>
+<code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">media-controls</span> <span class="hljs-attr">src</span>=<span class="hljs-string">&quot;example.mp3&quot;</span>&gt;</span>
+  This will be shown as the label for the audio player
+<span class="hljs-tag">&lt;/<span class="hljs-name">media-controls</span>&gt;</span></pre></code>
+<p>Originally, the label on this component was set as an attribute. However, it became clear very quickly that it was much easier &mdash; not to mention simpler &mdash; to simply expose the inner content through a slot. There's still a <var>--label-width</var> variable to control its size, but generally we found it easier to treat this element as a block and style its size from the outer layout, rather than trying to manage its width from the inside-out.</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="cs-shader.html"> &laquo; WebGL shader preview</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="index.html"> Radio &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>

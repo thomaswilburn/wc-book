@@ -1,0 +1,55 @@
+@metadata...
+title: Media controller
+type: chapter
+...metadata
+
+The media elements added in HTML5, `<audio>` and `<video>`, offer built-in UI via an attribute toggle. However, that UI isn't customizable in any real sense &mdash; certainly not in a cross-browser way. If you want to create a styled play button, you need to implement it yourself.
+
+I built this element for a multimedia story at NPR. Being a radio organization, we've done lots of audio-centric projects before &mdash; in my <a href="http://blog.apps.npr.org/2019/05/17/white-lies.html">retrospective for <i>White Lies</i></a>, for example, you can see sample code for a player that loaded files spread throughout the story (and read about how making it work on iOS poses an extra challenge). However, one of the nice things about a custom element is that it gives you more of a building block: instead of needing to build a monolithic player that runs across a whole presentation, I can instead build a single player control button as a discrete unit, then wire those pieces together as needed.
+
+This component was built in our <a href="https://github.com/nprapps/interactive-template">interactive template</a>, which bundles JavaScript using CommonJS modules. That also allows us to load HTML templates from separate files using `require()`, which is handy &mdash; no long, clumsy string literals here. Tools like WebPack and Rollup also let you do this from ES6 import statements, and I highly recommend working out how. Otherwise, I've built tools that use `fetch()` and the <a href="https://developer.mozilla.org/en-US/docs/Web/API/CustomElementRegistry/whenDefined">`customElements.whenDefined()`</a> function to support async component loading, but it definitely feels less seamless. If only HTML imports were still an option...
+
+@subhead `media-controls.js`
+
+@includeCode(js) examples/media-controls/media-controls.js
+
+@subhead `watchSelector.js`
+
+@includeCode(js) examples/media-controls/watchSelector.js
+
+@subhead `_media-controls.html`
+
+@includeCode(html) examples/media-controls/_media-controls.html
+
+@subhead Notes
+
+@subsubhead Associated media elements
+
+This element was the first real use of the association and control pattern I've written about in this book. It mimics the "for" attribute that's used on labels, or the way "aria-activedescendant" works &mdash; set the attribute to the ID of the media element, and our controller will automatically connect to it to trigger playback and show the current progress.
+
+Using the `watchSelector` module means that we don't have to worry about whether the ID was set first, or whether the element exists when we set the "for" attribute. If the target element is created or ID'd after initialization, we'll still be notified, and the `connect()` method will be called to set up the association. You can also call this method manually, without setting the attribute &mdash; that proves useful if you're nesting this component into another UI component, as I later did for a `<simple-video>` player. In that case, because the element placed the control and video elements in shadow DOM, we couldn't search the document by ID &mdash; but we also didn't need to, since we had references to them and could simply `connect()` them in our outer component's constructor.
+
+If you don't want to create or control a media element, you just want to play an audio file, you can also set the "src" attribute, and the element will host its own `<audio>`. This isn't something we used much, but it's a nice way to quickly test something in the page.
+
+@subsubhead Handling media events
+
+Media events can be frustrating to handle at first, especially because they don't bubble like normal DOM events do. You have to add listeners directly to the `<audio>` or `<video>` element. However, once you get the hang of it, these events are actually often very easily to handle for the purposes of display, because you don't need to maintain any local state: you can get all the information you need directly from the media element.
+
+Accordingly, our `onMediaUpdate()` is called for almost any media event ("play", "pause", "timeupdate", or "canplaythrough", in this case). Regardless of the type, we set our UI to reflect the current state of the media element:
+
+* We get the current progress ratio by pulling the target's `currentTime` and `duration` properties and doing a little math. In this case, we're creating a circular progress indicator using the <a href="https://jakearchibald.com/2013/animated-line-drawing-svg/">animated SVG path</a> technique, but it could just as easily be a straightforward progress bar.
+* If the element is paused, hide the "pause" icon. If it's playing, hide the "play" icon and show "pause" instead.
+
+In <a href="https://github.com/thomaswilburn/radio-v2/blob/master/audio-player.js#L92">a more robust player</a>, you might add indicators for seeking or stalled downloads, or output the time as text. But the more you leave state up to the media element, instead of trying to track it inside your component, the better off you'll be. Treat the DOM as the source of truth.
+
+@subsubhead Style hooks
+
+For this particular component, we're using two CSS variables to expose styling from outside. By setting `--button-bg` or `--button-fg` on a rule that targets our media elements, you can change them to whatever theme colors you want. 
+
+@codeblock(html)...
+<media-controls src="example.mp3">
+  This will be shown as the label for the audio player
+</media-controls>
+...codeblock
+
+Originally, the label on this component was set as an attribute. However, it became clear very quickly that it was much easier &mdash; not to mention simpler &mdash; to simply expose the inner content through a slot. There's still a `--label-width` variable to control its size, but generally we found it easier to treat this element as a block and style its size from the outer layout, rather than trying to manage its width from the inside-out.

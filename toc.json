@@ -33,7 +33,8 @@
       "cs-custom-element",
       "cs-autocomplete",
       "cs-shader",
-      "media-controls",
+      "cs-media",
+      "Radio",
       "2020 Primary Results"
     ]
   }
