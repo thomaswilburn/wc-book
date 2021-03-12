@@ -1,0 +1,351 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>2020 primary election results</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="cs-primaries chapter">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="cs-radio.html"> &laquo; Podcast client</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="index.html"> Table of Contents &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    
+  </aside>
+  <h1>2020 primary election results</h1>
+<p>There's a saying in news nerd circles: elections are nothing but edge cases. It's not that the data is inherently complicated &mdash; it's not &mdash; but US elections are a federated system, meaning that we actually have 50 smaller elections, and each of those is run by extremely messy humans. All of this is especially true of the primaries. It can't help but be complicated.</p>
+<p>My team didn't fully realize, when we started 2020, how much work we would do on primary election results. NPR had not covered primaries at this level of detail before, and I don't think the editors on the politics beat really understood the scale of work involved (they probably still don't). Covering a general election is bad enough &mdash; covering elections over a nine-month period, especially as a pandemic wreaks havoc on the calendar, is an entirely different level of complication.</p>
+<p>If you're interested in how the overall primary rig works, you can read our <a href="https://blog.apps.npr.org/2020/03/16/custom-elements-primaries.html">retrospective</a> and <a href="https://github.com/nprapps/elections20-primaries/">check out the source code</a> (full disclosure, you'll need an AP elections API key to actually run it). For this particular example, I want to drill down a little bit, into the county detail display. You can see one of those in action <a href="https://apps.npr.org/elections20-primaries/states/IA.html#counties=true&office=P&date=2%2F3%2F2020&party=Dem">here</a> &mdash; specifically, the state map and county results table at the bottom of the page.</p>
+<p>I built most of the initial displays for the primary results, and set up the basic architecture for the application, but by the time Super Tuesday rolled around it was a team effort from myself, Audrey Carlsen, Alyson Hurt, and Ruth Talbot. Looking through the <a href="https://github.com/nprapps/elections20-primaries/pull/100">pull request commit log</a>, we can see that Audrey did most of the work on the map itself and its integration into the bigger display.</p>
+<p>Most of our primary results displays were built as pairs of elements, with an outer component that loaded and monitored data files for updates, and then passed those to the inner component for rendering. This architecture let us re-use results tables and other UI code across lots of different kinds of races, from house primaries to special general elections. We're just going to look at the <var>&lt;county-detail&gt;</var> component, which coordinated data between two child components.</p>
+<h2 id="_templatehtml"><var>_template.html</var></h2>
+<p>As you'll see in the template below, which is used to set the light DOM of the component, <var>&lt;county-detail&gt;</var> creates child components for display, and coordinates data between them: <var>&lt;county-map&gt;</var> for geographic display, <var>&lt;results-table&gt;</var> for county-level listings, and a drop-down UI menu to flip between counties.</p>
+<code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">county-map</span> <span class="hljs-attr">data-as</span>=<span class="hljs-string">&quot;map&quot;</span> <span class="hljs-attr">aria-hidden</span>=<span class="hljs-string">&quot;true&quot;</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">county-map</span>&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;county-results&quot;</span> <span class="hljs-attr">data-as</span>=<span class="hljs-string">&quot;resultsContainer&quot;</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;controls&quot;</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">label</span> <span class="hljs-attr">for</span>=<span class="hljs-string">&quot;county-select&quot;</span>&gt;</span>Select a county<span class="hljs-tag">&lt;/<span class="hljs-name">label</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;outer-county-select&quot;</span>&gt;</span>
+      <span class="hljs-tag">&lt;<span class="hljs-name">select</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;county-select&quot;</span> <span class="hljs-attr">data-as</span>=<span class="hljs-string">&quot;countySelect&quot;</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">select</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span>
+
+  <span class="hljs-tag">&lt;<span class="hljs-name">h4</span> <span class="hljs-attr">data-as</span>=<span class="hljs-string">&quot;countyName&quot;</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">h4</span>&gt;</span>
+  
+  <span class="hljs-tag">&lt;<span class="hljs-name">results-table</span> <span class="hljs-attr">data-as</span>=<span class="hljs-string">&quot;resultsTable&quot;</span>&gt;</span>
+    Select a county to see detailed results
+  <span class="hljs-tag">&lt;/<span class="hljs-name">results-table</span>&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;uncontested-message&quot;</span>&gt;</span>
+  County-level results are not shown for uncontested races.
+<span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span></pre></code>
+<h2 id="county-detailjs"><var>county-detail.js</var></h2>
+<p>If you've never thought about how much work goes into displaying election results, this may be a rude awakening for you. Feel free to let your eyes glaze over between the <var>*** PROCESSING START ***</var> and <var>END</var> comments, which mark where we transform the raw AP data into a usable form.</p>
+<code class="language-js"><pre><span class="hljs-keyword">var</span> ElementBase = <span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;../elementBase&quot;</span>);
+<span class="hljs-keyword">var</span> Retriever = <span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;../retriever&quot;</span>);
+
+<span class="hljs-keyword">var</span> $ = <span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;../../lib/qsa&quot;</span>); <span class="hljs-comment">// querySelector alias</span>
+<span class="hljs-keyword">var</span> track = <span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;../../lib/tracking&quot;</span>); <span class="hljs-comment">// Google Analytics events</span>
+
+<span class="hljs-comment">// related components and styles</span>
+<span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;../results-table&quot;</span>);
+<span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;../county-map&quot;</span>);
+<span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;./county-detail.less&quot;</span>);
+
+<span class="hljs-comment">// load headshots for presidential candidates from a Google sheet</span>
+<span class="hljs-keyword">var</span> mugs = <span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;mugs.sheet.json&quot;</span>);
+
+<span class="hljs-keyword">var</span> {
+  formatAPDate,
+  formatTime,
+  groupBy,
+  mapToElements,
+  toggleAttribute
+} = <span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;../utils&quot;</span>);
+
+<span class="hljs-comment">// generate a color lookup for well-known candidates</span>
+<span class="hljs-keyword">var</span> colorSet = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Set</span>();
+<span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> m <span class="hljs-keyword">in</span> mugs) {
+  <span class="hljs-keyword">if</span> (mugs[m].color) colorSet.add(mugs[m].color);
+}
+<span class="hljs-keyword">var</span> colorKey = <span class="hljs-built_in">Array</span>.from(colorSet);
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CountyDetail</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">ElementBase</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+    <span class="hljs-comment">// a Retriever is a utility for observing files on S3 for updates</span>
+    <span class="hljs-built_in">this</span>.fetch = <span class="hljs-keyword">new</span> Retriever(<span class="hljs-built_in">this</span>.load);
+    <span class="hljs-built_in">this</span>.palette = {};
+    <span class="hljs-comment">// listen for events dispatched from the inner map</span>
+    <span class="hljs-built_in">this</span>.addEventListener(<span class="hljs-string">&quot;map-click&quot;</span>, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">e</span>) </span>{
+      <span class="hljs-keyword">var</span> fips = e.detail.fips;
+      track(<span class="hljs-string">&quot;click-county&quot;</span>, fips);
+      <span class="hljs-keyword">var</span> elements = <span class="hljs-built_in">this</span>.illuminate();
+      elements.countySelect.value = fips;
+      <span class="hljs-built_in">this</span>.updateTable(fips);
+    });
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">boundMethods</span>() {
+    <span class="hljs-keyword">return</span> [<span class="hljs-string">&quot;load&quot;</span>, <span class="hljs-string">&quot;onSelectCounty&quot;</span>];
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">observedAttributes</span>() {
+    <span class="hljs-keyword">return</span> [<span class="hljs-string">&quot;src&quot;</span>, <span class="hljs-string">&quot;party&quot;</span>, <span class="hljs-string">&quot;live&quot;</span>, <span class="hljs-string">&quot;map&quot;</span>];
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">mirroredProps</span>() {
+    <span class="hljs-keyword">return</span> [<span class="hljs-string">&quot;src&quot;</span>];
+  }
+
+  <span class="hljs-function"><span class="hljs-title">attributeChangedCallback</span>(<span class="hljs-params">attr, was, value</span>)</span> {
+    <span class="hljs-keyword">switch</span> (attr) {
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;src&quot;</span>:
+        <span class="hljs-built_in">this</span>.fetch.watch(value, <span class="hljs-built_in">this</span>.getAttribute(<span class="hljs-string">&quot;live&quot;</span>) || <span class="hljs-number">60</span>);
+        <span class="hljs-keyword">break</span>;
+
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;party&quot;</span>:
+        <span class="hljs-built_in">this</span>.render();
+        <span class="hljs-keyword">break</span>;
+
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;live&quot;</span>:
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">typeof</span> value == <span class="hljs-string">&quot;string&quot;</span>) {
+          <span class="hljs-built_in">this</span>.fetch.start(value);
+        } <span class="hljs-keyword">else</span> {
+          <span class="hljs-built_in">this</span>.fetch.stop();
+        }
+        <span class="hljs-keyword">break</span>;
+
+      <span class="hljs-keyword">case</span> <span class="hljs-string">&quot;map&quot;</span>:
+        <span class="hljs-keyword">var</span> elements = <span class="hljs-built_in">this</span>.illuminate();
+        elements.map.src = value;
+        <span class="hljs-keyword">break</span>;
+    }
+  }
+
+  <span class="hljs-function"><span class="hljs-title">load</span>(<span class="hljs-params">data</span>)</span> {
+    <span class="hljs-built_in">this</span>.cache = data;
+    <span class="hljs-built_in">this</span>.render();
+  }
+
+  <span class="hljs-function"><span class="hljs-title">render</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-keyword">var</span> colors = colorKey.slice();
+
+    <span class="hljs-keyword">var</span> elements = <span class="hljs-built_in">this</span>.illuminate();
+    <span class="hljs-built_in">this</span>.classList.remove(<span class="hljs-string">&quot;uncontested&quot;</span>);
+    <span class="hljs-keyword">var</span> data = <span class="hljs-built_in">this</span>.cache;
+    <span class="hljs-keyword">if</span> (!data) <span class="hljs-keyword">return</span>;
+    <span class="hljs-keyword">var</span> { races, test } = data;
+
+    <span class="hljs-comment">/* *** PROCESSING START *** */</span>
+
+    <span class="hljs-keyword">var</span> party = <span class="hljs-built_in">this</span>.getAttribute(<span class="hljs-string">&quot;party&quot;</span>);
+    <span class="hljs-keyword">if</span> (!party || party == <span class="hljs-string">&quot;undefined&quot;</span>) party = <span class="hljs-literal">false</span>;
+
+    <span class="hljs-comment">// filter races by type - no weird alignments</span>
+    <span class="hljs-keyword">var</span> [race] = races.filter(
+      <span class="hljs-function"><span class="hljs-params">r</span> =&gt;</span> (party ? r.party == party : <span class="hljs-literal">true</span>) &amp;&amp; r.type &amp;&amp; !r.type.match(<span class="hljs-regexp">/alignment/i</span>)
+    );
+
+    <span class="hljs-keyword">var</span> results = race.results;
+    <span class="hljs-keyword">var</span> counties = {};
+    <span class="hljs-keyword">var</span> fips = {};
+    <span class="hljs-keyword">var</span> totals = {}; <span class="hljs-comment">// state-wide totals</span>
+
+    <span class="hljs-keyword">var</span> candidates = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Set</span>();
+
+    <span class="hljs-comment">// aggregate data based on county results</span>
+    results.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">r</span>) </span>{
+      <span class="hljs-keyword">var</span> top = <span class="hljs-literal">null</span>;
+      r.candidates.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">candidate</span>) </span>{
+      <span class="hljs-comment">// create an empty totals object when first seeing a candidate</span>
+        <span class="hljs-keyword">if</span> (!totals[candidate.id])
+          totals[candidate.id] = {
+            <span class="hljs-attr">first</span>: candidate.first,
+            <span class="hljs-attr">last</span>: candidate.last,
+            <span class="hljs-attr">id</span>: candidate.id,
+            <span class="hljs-attr">votes</span>: <span class="hljs-number">0</span>
+          };
+        totals[candidate.id].votes += candidate.votes;
+        <span class="hljs-keyword">if</span> (!top || candidate.percentage &gt; top.percentage) {
+          top = candidate;
+        }
+        <span class="hljs-keyword">delete</span> candidate.winner;
+        candidates.add(candidate.id);
+      });
+      <span class="hljs-comment">// counties are only marked as winners when all votes are in</span>
+      <span class="hljs-keyword">if</span> (r.reportingPercentage == <span class="hljs-number">100</span>) {
+        top.winner = <span class="hljs-literal">true</span>;
+      }
+      <span class="hljs-comment">// add each county to our lookup objects</span>
+      counties[r.county] = r.fips;
+      fips[r.fips] = r.county;
+    });
+
+    <span class="hljs-keyword">if</span> (candidates.size == <span class="hljs-number">1</span>) {
+      <span class="hljs-comment">// suppress display for uncontested races</span>
+      <span class="hljs-keyword">return</span> <span class="hljs-built_in">this</span>.classList.add(<span class="hljs-string">&quot;uncontested&quot;</span>);
+    }
+
+    <span class="hljs-comment">// for future map use: determine the palette by statewide total position</span>
+    <span class="hljs-keyword">var</span> statewide = <span class="hljs-built_in">Object</span>.values(totals);
+    statewide.sort(<span class="hljs-function">(<span class="hljs-params">a, b</span>) =&gt;</span> b.votes - a.votes);
+
+    <span class="hljs-comment">// generate a consistent palette between the table and map</span>
+    <span class="hljs-keyword">var</span> palette = {};
+    statewide.slice(<span class="hljs-number">0</span>, colors.length).forEach(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">s, i</span>) </span>{
+      <span class="hljs-keyword">var</span> color = mugs[s.last] &amp;&amp; mugs[s.last].color;
+
+      <span class="hljs-keyword">if</span> (color) {
+        <span class="hljs-keyword">var</span> index = colors.indexOf(color);
+        colors.splice(index,<span class="hljs-number">1</span>);
+
+        palette[s.id] = {
+          <span class="hljs-attr">id</span>: s.id,
+          <span class="hljs-attr">first</span>: s.first,
+          <span class="hljs-attr">last</span>: s.last,
+          <span class="hljs-attr">color</span>: color,
+          <span class="hljs-attr">order</span>: i
+        };
+      } <span class="hljs-keyword">else</span> {
+        palette[s.id] = {
+          <span class="hljs-attr">id</span>: s.id,
+          <span class="hljs-attr">first</span>: s.first,
+          <span class="hljs-attr">last</span>: s.last,
+          <span class="hljs-attr">order</span>: i
+        };
+      }
+    });
+    
+    <span class="hljs-keyword">var</span> index = <span class="hljs-number">0</span>;
+    <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> p <span class="hljs-keyword">in</span> palette) {
+      <span class="hljs-keyword">var</span> candidate = palette[p];
+      <span class="hljs-keyword">if</span> (!candidate.color) {
+        candidate.color = colors[index];
+        index += <span class="hljs-number">1</span>;
+      }
+    }
+
+    <span class="hljs-keyword">if</span> (statewide.length &gt; colors.length) {
+      palette.other = {
+        <span class="hljs-attr">id</span>: <span class="hljs-string">&quot;other&quot;</span>,
+        <span class="hljs-attr">last</span>: <span class="hljs-string">&quot;Other&quot;</span>,
+        <span class="hljs-attr">color</span>: <span class="hljs-string">&quot;#bbb&quot;</span>,
+        <span class="hljs-attr">order</span>: <span class="hljs-number">999</span>
+      };
+    }
+
+    <span class="hljs-comment">/* *** PROCESSING END *** */</span>
+
+    <span class="hljs-comment">// paint the map with county results</span>
+    elements.map.render(palette, race.results, <span class="hljs-built_in">this</span>.dataset.state);
+
+    <span class="hljs-comment">// generate the county select drop-down items</span>
+    counties = <span class="hljs-built_in">Object</span>.keys(counties)
+      .sort()
+      .map(<span class="hljs-function"><span class="hljs-params">county</span> =&gt;</span> ({ county, <span class="hljs-attr">id</span>: counties[county] }));
+    mapToElements(elements.countySelect, counties, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">data</span>) </span>{
+      <span class="hljs-keyword">var</span> option = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">&quot;option&quot;</span>);
+      option.innerHTML = data.county.replace(<span class="hljs-regexp">/\s[a-z]/g</span>, <span class="hljs-function"><span class="hljs-params">match</span> =&gt;</span>
+        match.toUpperCase()
+      );
+      option.value = data.id;
+      <span class="hljs-keyword">return</span> option;
+    });
+
+    <span class="hljs-comment">// by default, show the largest county in the state</span>
+    <span class="hljs-keyword">var</span> maxPop = <span class="hljs-number">0</span>;
+    <span class="hljs-keyword">var</span> maxFips;
+    results.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">r</span>) </span>{
+      <span class="hljs-keyword">if</span> (r.population &gt; maxPop) {
+        maxPop = r.population;
+        maxFips = r.fips;
+      }
+    });
+
+    elements.countySelect.value = maxFips;
+    elements.map.highlightCounty(maxFips);
+    <span class="hljs-built_in">this</span>.updateTable(maxFips);
+  }
+
+  <span class="hljs-function"><span class="hljs-title">updateTable</span>(<span class="hljs-params">fips</span>)</span> {
+    <span class="hljs-keyword">if</span> (fips == <span class="hljs-number">0</span>) <span class="hljs-keyword">return</span>;
+    <span class="hljs-keyword">var</span> elements = <span class="hljs-built_in">this</span>.illuminate();
+    <span class="hljs-keyword">var</span> { resultsTable } = elements;
+    <span class="hljs-keyword">var</span> data = <span class="hljs-built_in">this</span>.cache;
+    <span class="hljs-keyword">var</span> party = <span class="hljs-built_in">this</span>.getAttribute(<span class="hljs-string">&quot;party&quot;</span>);
+    <span class="hljs-keyword">if</span> (!party || party == <span class="hljs-string">&quot;undefined&quot;</span>) party = <span class="hljs-literal">false</span>;
+    <span class="hljs-keyword">if</span> (!data) <span class="hljs-keyword">return</span>;
+
+    <span class="hljs-keyword">var</span> { races } = data;
+    <span class="hljs-comment">// filter races by type - no weird alignments</span>
+    <span class="hljs-keyword">var</span> [race] = races.filter(
+      <span class="hljs-function"><span class="hljs-params">r</span> =&gt;</span> (party ? r.party == party : <span class="hljs-literal">true</span>) &amp;&amp; r.type &amp;&amp; !r.type.match(<span class="hljs-regexp">/alignment/i</span>)
+    );
+    <span class="hljs-keyword">var</span> [result] = race.results.filter(<span class="hljs-function"><span class="hljs-params">r</span> =&gt;</span> r.fips == fips);
+
+    resultsTable.setAttribute(
+      <span class="hljs-string">&quot;headline&quot;</span>, 
+      result.county + <span class="hljs-string">` (Pop. <span class="hljs-subst">${result.population.toLocaleString()}</span>)`</span>
+    );
+    resultsTable.setAttribute(<span class="hljs-string">&quot;max&quot;</span>, <span class="hljs-number">99</span>);
+    <span class="hljs-keyword">if</span> (result) resultsTable.render(result);
+  }
+
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">template</span>() {
+    <span class="hljs-keyword">return</span> <span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;./_template.html&quot;</span>);
+  }
+
+  <span class="hljs-function"><span class="hljs-title">onSelectCounty</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-keyword">var</span> elements = <span class="hljs-built_in">this</span>.illuminate();
+    <span class="hljs-keyword">var</span> fips = elements.countySelect.value;
+    track(<span class="hljs-string">&quot;select-county&quot;</span>, fips);
+    <span class="hljs-built_in">this</span>.updateTable(fips);
+    elements.map.highlightCounty(fips);
+  }
+
+  <span class="hljs-function"><span class="hljs-title">illuminate</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-keyword">var</span> elements = <span class="hljs-built_in">super</span>.illuminate();
+    elements.countySelect.addEventListener(<span class="hljs-string">&quot;change&quot;</span>, <span class="hljs-built_in">this</span>.onSelectCounty);
+    <span class="hljs-keyword">return</span> elements;
+  }
+}
+
+CountyDetail.define(<span class="hljs-string">&quot;county-detail&quot;</span>);</pre></code>
+<h2 id="notes">Notes</h2>
+<h3>Retrievers and static data</h3>
+<p>This component relies on data from two sources. Our <a href="https://github.com/nprapps/interactive-template/">interactive template</a>, which forms the basis of the election displays, pulls configuration from Google Sheets. In the code, we load a set of candidate headshots with <var>var mugs = require("mugs.sheet.json");</var>. In other components, static data from Sheets is added to the bundle for things like string constants, but we don't need to do that here.</p>
+<p>This component also uses a <var>Retriever</var> class, which is stored on <var>this.fetch</var> in the constructor, to observe the results files that are published to our S3 bucket by the data pipeline. A <var>Retriever</var> targets a single file, which it checks for updates (using the <var>ETag</var> header) at regular intervals &mdash; usually every 15 seconds. If it sees a new version of the file, it runs the callback function passed to its constructor, in line with the pattern set by other Observer objects.</p>
+<p>In this class, that callback is the <var>load()</var> method, which caches the data and then calls <var>render()</var> to actually set it up. If the element hasn't already injected its internal template, a call to <var>illuminate()</var> does that, and then the component performs a lot of data processing. Finally, it passes that data to the map for painting, and updates the table to match.</p>
+<h3>The <var>&lt;county-map&gt;</var> interface</h3>
+<p>You can see the source for <var>&lt;county-map&gt;</var> <a href="https://github.com/nprapps/elections20-primaries/tree/master/src/js/components/county-map">here</a>, but at a high level, it does three things: it loads a pre-rendered SVG of the state when the "src" attribute is set, it colors in parts of that SVG based on data passed to its <var>render()</var> method, and it shows a popup with details about each county as you mouse over the map.</p>
+<p>For this project, we largely standardized on <var>render()</var> as a general-purpose code for "update the page from data" for our display components. It never reached the point that the data-oriented parent components were entirely agnostic about their children, but a consistent method signature made it a lot easier to move between the many components on these results pages.</p>
+<p>The map's "src" attribute is passed through the "map" attribute of <var>&lt;county-details&gt;</var>, which itself is set from <a href="https://github.com/nprapps/elections20-primaries/blob/master/src/statePartials/_counties.html">the page template</a> itself. We made heavy use of attributes as configuration for this project, based on data from the primary calendar, in part because it was easier to verify that future events were configured correctly when we could just view the page source.</p>
+<h3>The <var>&lt;results-table&gt;</var> interface</h3>
+<p>Like the map, a <var>&lt;results-table&gt;</var> has a <var>render()</var> method that causes it to update its contents. It also supports an "href" element to show a "more results" link when it's used as an embed, and a "headline" attribute to set its title text. If you <a href="https://github.com/nprapps/elections20-primaries/blob/master/src/js/components/results-table/index.js">look through the source</a>, you'll also see that it uses an EJS template for the actual table contents &mdash; many components in the primaries rig perform simple iteration with a <var>matchElements()</var> function that's similar to Radio's <var>matchData()</var>, but for anything more complex we used a real template language.</p>
+<p><var>&lt;results-table&gt;</var> was actually one of two tables that are used whenever you see candidate name and vote totals in the primary election pages. The other was <a href="https://github.com/nprapps/elections20-primaries/tree/master/src/js/components/president-results"><var>&lt;president-results&gt;</var></a>, which is basically just the same table but with candidate portraits and the option of wrapping to two columns. From an interface perspective, however, they're basically interchangeable.</p>
+<h3>Coordinating displays</h3>
+<p>There are two ways of digging into the county-level results on these pages: you can click on the map, or you can use the drop-down menu to select a county in alphabetical order. Having both navigation mechanisms made sense to us &mdash; many people think about finding themselves on a map, but on mobile (or for the spatially challenged) it's easier to use the select box than to poke at the map until you hit the right county.</p>
+<p>The select box is the easier of the two to coordinate, in part because it's owned directly by the <var>&lt;county-details&gt;</var> component itself. A listener that calls <var>onSelectCounty()</var> is added in the <var>illuminate()</var> method (which performs lazy templating). We get the value from the select box, which is a county FIPS code, then call <var>updateTable()</var> to re-render the <var>&lt;results-table&gt;</var> and use the map's <var>highlightCounty()</var> method to visually indicate its location.</p>
+<p>From the map, the flow is a little more indirect. <var>&lt;county-map&gt;</var> dispatches a "map-click" event when the user touches a county, and highlights the correct location. In our <var>&lt;county-details&gt;</var> constructor, we can listen for this event on the component itself, where it will bubble up from the map. The event includes the FIPS code, which we can use to call <var>updateTable()</var> and set the select box to the correct display.</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="cs-radio.html"> &laquo; Podcast client</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="index.html"> Table of Contents &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>

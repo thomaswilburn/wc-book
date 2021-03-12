@@ -145,50 +145,6 @@
 }
 
 MediaControls.define(<span class="hljs-string">&quot;media-controls&quot;</span>);</pre></code>
-<h2 id="watchselectorjs"><var>watchSelector.js</var></h2>
-<code class="language-js"><pre><span class="hljs-keyword">var</span> watchList = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Map</span>();
-
-<span class="hljs-keyword">var</span> glance = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">watch</span>) </span>{
-  <span class="hljs-keyword">var</span> result = <span class="hljs-built_in">document</span>.querySelector(watch.selector);
-  watch.callbacks.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">c</span>) </span>{
-    <span class="hljs-keyword">if</span> (c.previous == result) <span class="hljs-keyword">return</span>;
-    c(result);
-    c.previous = result;
-  })
-};
-
-<span class="hljs-keyword">var</span> observer = <span class="hljs-keyword">new</span> MutationObserver(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">mutations</span>) </span>{
-  watchList.forEach(glance);
-});
-
-observer.observe(<span class="hljs-built_in">document</span>.body, {
-  <span class="hljs-attr">subtree</span>: <span class="hljs-literal">true</span>,
-  <span class="hljs-attr">childList</span>: <span class="hljs-literal">true</span>,
-  <span class="hljs-attr">attributeFilter</span>: [<span class="hljs-string">&quot;id&quot;</span>]
-});
-
-<span class="hljs-keyword">var</span> watchSelector = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">selector, callback</span>) </span>{
-  <span class="hljs-keyword">var</span> watch = watchList.get(selector) || { selector, <span class="hljs-attr">callbacks</span>: [] };
-  <span class="hljs-keyword">if</span> (watch.callbacks.includes(callback)) <span class="hljs-keyword">return</span>;
-  watch.callbacks.push(callback);
-  <span class="hljs-keyword">try</span> {
-    glance(watch);
-    watchList.set(selector, watch);
-  } <span class="hljs-keyword">catch</span> (err) {
-    <span class="hljs-built_in">console</span>.error(err);
-  }
-};
-
-<span class="hljs-keyword">var</span> unwatchSelector = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">selector, callback</span>) </span>{
-  <span class="hljs-keyword">var</span> watching = watchList.get(selector);
-  <span class="hljs-keyword">if</span> (!watching) <span class="hljs-keyword">return</span>;
-  watching.callbacks = watching.callbacks.filter(<span class="hljs-function"><span class="hljs-params">c</span> =&gt;</span> c != callback);
-  <span class="hljs-keyword">if</span> (!watching.callbacks.length) {
-    watchList.delete(selector);
-  }
-};
-
-<span class="hljs-built_in">module</span>.exports = { watchSelector, unwatchSelector };</pre></code>
 <h2 id="_media-controlshtml"><var>_media-controls.html</var></h2>
 <code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">style</span>&gt;</span><span class="css">
 <span class="hljs-selector-pseudo">:host</span> {
@@ -267,7 +223,52 @@ observer.observe(<span class="hljs-built_in">document</span>.body, {
 <h2 id="notes">Notes</h2>
 <h3>Associated media elements</h3>
 <p>This element was the first real use of the association and control pattern I've written about in this book. It mimics the "for" attribute that's used on labels, or the way "aria-activedescendant" works &mdash; set the attribute to the ID of the media element, and our controller will automatically connect to it to trigger playback and show the current progress.</p>
-<p>Using the <var>watchSelector</var> module means that we don't have to worry about whether the ID was set first, or whether the element exists when we set the "for" attribute. If the target element is created or ID'd after initialization, we'll still be notified, and the <var>connect()</var> method will be called to set up the association. You can also call this method manually, without setting the attribute &mdash; that proves useful if you're nesting this component into another UI component, as I later did for a <var>&lt;simple-video&gt;</var> player. In that case, because the element placed the control and video elements in shadow DOM, we couldn't search the document by ID &mdash; but we also didn't need to, since we had references to them and could simply <var>connect()</var> them in our outer component's constructor.</p>
+<p>Using the <var>watchSelector</var> module means that we don't have to worry about whether the ID was set first, or whether the element exists when we set the "for" attribute. If the target element is created or ID'd after initialization, we'll still be notified, and the <var>connect()</var> method will be called to set up the association.</p>
+<p>Here's the source for <var>watchSelector.js</var>, which is just an expanded version of the <var>watchID()</var> function in an earlier chapter.</p>
+<code class="language-js"><pre><span class="hljs-keyword">var</span> watchList = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Map</span>();
+
+<span class="hljs-keyword">var</span> glance = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">watch</span>) </span>{
+  <span class="hljs-keyword">var</span> result = <span class="hljs-built_in">document</span>.querySelector(watch.selector);
+  watch.callbacks.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">c</span>) </span>{
+    <span class="hljs-keyword">if</span> (c.previous == result) <span class="hljs-keyword">return</span>;
+    c(result);
+    c.previous = result;
+  })
+};
+
+<span class="hljs-keyword">var</span> observer = <span class="hljs-keyword">new</span> MutationObserver(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">mutations</span>) </span>{
+  watchList.forEach(glance);
+});
+
+observer.observe(<span class="hljs-built_in">document</span>.body, {
+  <span class="hljs-attr">subtree</span>: <span class="hljs-literal">true</span>,
+  <span class="hljs-attr">childList</span>: <span class="hljs-literal">true</span>,
+  <span class="hljs-attr">attributeFilter</span>: [<span class="hljs-string">&quot;id&quot;</span>]
+});
+
+<span class="hljs-keyword">var</span> watchSelector = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">selector, callback</span>) </span>{
+  <span class="hljs-keyword">var</span> watch = watchList.get(selector) || { selector, <span class="hljs-attr">callbacks</span>: [] };
+  <span class="hljs-keyword">if</span> (watch.callbacks.includes(callback)) <span class="hljs-keyword">return</span>;
+  watch.callbacks.push(callback);
+  <span class="hljs-keyword">try</span> {
+    glance(watch);
+    watchList.set(selector, watch);
+  } <span class="hljs-keyword">catch</span> (err) {
+    <span class="hljs-built_in">console</span>.error(err);
+  }
+};
+
+<span class="hljs-keyword">var</span> unwatchSelector = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">selector, callback</span>) </span>{
+  <span class="hljs-keyword">var</span> watching = watchList.get(selector);
+  <span class="hljs-keyword">if</span> (!watching) <span class="hljs-keyword">return</span>;
+  watching.callbacks = watching.callbacks.filter(<span class="hljs-function"><span class="hljs-params">c</span> =&gt;</span> c != callback);
+  <span class="hljs-keyword">if</span> (!watching.callbacks.length) {
+    watchList.delete(selector);
+  }
+};
+
+<span class="hljs-built_in">module</span>.exports = { watchSelector, unwatchSelector };</pre></code>
+<p>You can also call <var>connect()</var> manually, without setting the "for" attribute &mdash; that proves useful if you're nesting this component into another UI component, as I later did for a <var>&lt;simple-video&gt;</var> player that combined a video and a play button into one component. In that case, because the shadow DOM contained the control and video elements, we couldn't search the document for them by ID &mdash; but we also didn't need to, since we had references to them and could simply <var>connect()</var> them in our outer component's constructor.</p>
 <p>If you don't want to create or control a media element, you just want to play an audio file, you can also set the "src" attribute, and the element will host its own <var>&lt;audio&gt;</var>. This isn't something we used much, but it's a nice way to quickly test something in the page.</p>
 <h3>Handling media events</h3>
 <p>Media events can be frustrating to handle at first, especially because they don't bubble like normal DOM events do. You have to add listeners directly to the <var>&lt;audio&gt;</var> or <var>&lt;video&gt;</var> element. However, once you get the hang of it, these events are actually often very easily to handle for the purposes of display, because you don't need to maintain any local state: you can get all the information you need directly from the media element.</p>

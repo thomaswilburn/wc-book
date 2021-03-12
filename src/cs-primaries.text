@@ -1,0 +1,58 @@
+@metadata...
+title: 2020 primary election results
+type: chapter
+...metadata
+
+There's a saying in news nerd circles: elections are nothing but edge cases. It's not that the data is inherently complicated &mdash; it's not &mdash; but US elections are a federated system, meaning that we actually have 50 smaller elections, and each of those is run by extremely messy humans. All of this is especially true of the primaries. It can't help but be complicated.
+
+My team didn't fully realize, when we started 2020, how much work we would do on primary election results. NPR had not covered primaries at this level of detail before, and I don't think the editors on the politics beat really understood the scale of work involved (they probably still don't). Covering a general election is bad enough &mdash; covering elections over a nine-month period, especially as a pandemic wreaks havoc on the calendar, is an entirely different level of complication. 
+
+If you're interested in how the overall primary rig works, you can read our <a href="https://blog.apps.npr.org/2020/03/16/custom-elements-primaries.html">retrospective</a> and <a href="https://github.com/nprapps/elections20-primaries/">check out the source code</a> (full disclosure, you'll need an AP elections API key to actually run it). For this particular example, I want to drill down a little bit, into the county detail display. You can see one of those in action <a href="https://apps.npr.org/elections20-primaries/states/IA.html#counties=true&office=P&date=2%2F3%2F2020&party=Dem">here</a> &mdash; specifically, the state map and county results table at the bottom of the page.
+
+I built most of the initial displays for the primary results, and set up the basic architecture for the application, but by the time Super Tuesday rolled around it was a team effort from myself, Audrey Carlsen, Alyson Hurt, and Ruth Talbot. Looking through the <a href="https://github.com/nprapps/elections20-primaries/pull/100">pull request commit log</a>, we can see that Audrey did most of the work on the map itself and its integration into the bigger display.
+
+Most of our primary results displays were built as pairs of elements, with an outer component that loaded and monitored data files for updates, and then passed those to the inner component for rendering. This architecture let us re-use results tables and other UI code across lots of different kinds of races, from house primaries to special general elections. We're just going to look at the `<county-detail>` component, which coordinated data between two child components.
+
+@subhead `_template.html`
+
+As you'll see in the template below, which is used to set the light DOM of the component, `<county-detail>` creates child components for display, and coordinates data between them: `<county-map>` for geographic display, `<results-table>` for county-level listings, and a drop-down UI menu to flip between counties.
+
+@includeCode(html) examples/county-detail/_template.html
+
+@subhead `county-detail.js`
+
+If you've never thought about how much work goes into displaying election results, this may be a rude awakening for you. Feel free to let your eyes glaze over between the `*** PROCESSING START ***` and `END` comments, which mark where we transform the raw AP data into a usable form.
+
+@includeCode(js) examples/county-detail/county-detail.js
+
+@subhead Notes
+
+@subsubhead Retrievers and static data
+
+This component relies on data from two sources. Our <a href="https://github.com/nprapps/interactive-template/">interactive template</a>, which forms the basis of the election displays, pulls configuration from Google Sheets. In the code, we load a set of candidate headshots with `var mugs = require("mugs.sheet.json");`. In other components, static data from Sheets is added to the bundle for things like string constants, but we don't need to do that here.
+
+This component also uses a `Retriever` class, which is stored on `this.fetch` in the constructor, to observe the results files that are published to our S3 bucket by the data pipeline. A `Retriever` targets a single file, which it checks for updates (using the `ETag` header) at regular intervals &mdash; usually every 15 seconds. If it sees a new version of the file, it runs the callback function passed to its constructor, in line with the pattern set by other Observer objects.
+
+In this class, that callback is the `load()` method, which caches the data and then calls `render()` to actually set it up. If the element hasn't already injected its internal template, a call to `illuminate()` does that, and then the component performs a lot of data processing. Finally, it passes that data to the map for painting, and updates the table to match.
+
+@subsubhead The `<county-map>` interface
+
+You can see the source for `<county-map>` <a href="https://github.com/nprapps/elections20-primaries/tree/master/src/js/components/county-map">here</a>, but at a high level, it does three things: it loads a pre-rendered SVG of the state when the "src" attribute is set, it colors in parts of that SVG based on data passed to its `render()` method, and it shows a popup with details about each county as you mouse over the map.
+
+For this project, we largely standardized on `render()` as a general-purpose code for "update the page from data" for our display components. It never reached the point that the data-oriented parent components were entirely agnostic about their children, but a consistent method signature made it a lot easier to move between the many components on these results pages.
+
+The map's "src" attribute is passed through the "map" attribute of `<county-details>`, which itself is set from <a href="https://github.com/nprapps/elections20-primaries/blob/master/src/statePartials/_counties.html">the page template</a> itself. We made heavy use of attributes as configuration for this project, based on data from the primary calendar, in part because it was easier to verify that future events were configured correctly when we could just view the page source.
+
+@subsubhead The `<results-table>` interface
+
+Like the map, a `<results-table>` has a `render()` method that causes it to update its contents. It also supports an "href" element to show a "more results" link when it's used as an embed, and a "headline" attribute to set its title text. If you <a href="https://github.com/nprapps/elections20-primaries/blob/master/src/js/components/results-table/index.js">look through the source</a>, you'll also see that it uses an EJS template for the actual table contents &mdash; many components in the primaries rig perform simple iteration with a `matchElements()` function that's similar to Radio's `matchData()`, but for anything more complex we used a real template language.
+
+`<results-table>` was actually one of two tables that are used whenever you see candidate name and vote totals in the primary election pages. The other was <a href="https://github.com/nprapps/elections20-primaries/tree/master/src/js/components/president-results">`<president-results>`</a>, which is basically just the same table but with candidate portraits and the option of wrapping to two columns. From an interface perspective, however, they're basically interchangeable.
+
+@subsubhead Coordinating displays
+
+There are two ways of digging into the county-level results on these pages: you can click on the map, or you can use the drop-down menu to select a county in alphabetical order. Having both navigation mechanisms made sense to us &mdash; many people think about finding themselves on a map, but on mobile (or for the spatially challenged) it's easier to use the select box than to poke at the map until you hit the right county.
+
+The select box is the easier of the two to coordinate, in part because it's owned directly by the `<county-details>` component itself. A listener that calls `onSelectCounty()` is added in the `illuminate()` method (which performs lazy templating). We get the value from the select box, which is a county FIPS code, then call `updateTable()` to re-render the `<results-table>` and use the map's `highlightCounty()` method to visually indicate its location.
+
+From the map, the flow is a little more indirect. `<county-map>` dispatches a "map-click" event when the user touches a county, and highlights the correct location. In our `<county-details>` constructor, we can listen for this event on the component itself, where it will bubble up from the map. The event includes the FIPS code, which we can use to call `updateTable()` and set the select box to the correct display.

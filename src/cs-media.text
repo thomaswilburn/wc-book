@@ -13,10 +13,6 @@ This component was built in our <a href="https://github.com/nprapps/interactive-
 
 @includeCode(js) examples/media-controls/media-controls.js
 
-@subhead `watchSelector.js`
-
-@includeCode(js) examples/media-controls/watchSelector.js
-
 @subhead `_media-controls.html`
 
 @includeCode(html) examples/media-controls/_media-controls.html
@@ -27,7 +23,13 @@ This component was built in our <a href="https://github.com/nprapps/interactive-
 
 This element was the first real use of the association and control pattern I've written about in this book. It mimics the "for" attribute that's used on labels, or the way "aria-activedescendant" works &mdash; set the attribute to the ID of the media element, and our controller will automatically connect to it to trigger playback and show the current progress.
 
-Using the `watchSelector` module means that we don't have to worry about whether the ID was set first, or whether the element exists when we set the "for" attribute. If the target element is created or ID'd after initialization, we'll still be notified, and the `connect()` method will be called to set up the association. You can also call this method manually, without setting the attribute &mdash; that proves useful if you're nesting this component into another UI component, as I later did for a `<simple-video>` player. In that case, because the element placed the control and video elements in shadow DOM, we couldn't search the document by ID &mdash; but we also didn't need to, since we had references to them and could simply `connect()` them in our outer component's constructor.
+Using the `watchSelector` module means that we don't have to worry about whether the ID was set first, or whether the element exists when we set the "for" attribute. If the target element is created or ID'd after initialization, we'll still be notified, and the `connect()` method will be called to set up the association.
+
+Here's the source for `watchSelector.js`, which is just an expanded version of the `watchID()` function in an earlier chapter.
+
+@includeCode(js) examples/media-controls/watchSelector.js
+
+You can also call `connect()` manually, without setting the "for" attribute &mdash; that proves useful if you're nesting this component into another UI component, as I later did for a `<simple-video>` player that combined a video and a play button into one component. In that case, because the shadow DOM contained the control and video elements, we couldn't search the document for them by ID &mdash; but we also didn't need to, since we had references to them and could simply `connect()` them in our outer component's constructor.
 
 If you don't want to create or control a media element, you just want to play an audio file, you can also set the "src" attribute, and the element will host its own `<audio>`. This isn't something we used much, but it's a nice way to quickly test something in the page.
 
