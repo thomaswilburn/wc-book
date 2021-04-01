@@ -1,0 +1,106 @@
+@metadata...
+title: Behavioral components
+type: chapter
+summary: Encapsulated events and manual markup
+...metadata
+
+A common criticism of web components is that, just like heavier client-side frameworks, they require JavaScript to function properly. This isn't a fatal flaw, necessarily &mdash; most users surf with JS enabled, and it's often required to build a truly accessible experience. But if you're coming from a server-oriented background, particularly something like Rails or Laravel, moving chunks of your page directly into web components may be an abrupt transition.
+
+However, there's another option: rather than build out custom elements as fully self-contained UI elements, you can use them as wrappers for markup that you define in your server-side templates. In this role, custom elements are behavioral &mdash; a way of easily enhancing a chunk of the page, instead of taking it over completely. This is the method that GitHub uses in their <a href="https://github.com/github/github-elements/">elements collection</a>, which makes sense given that GitHub itself is a Rails monolith.
+
+@subhead Enhancing a form
+
+Let's say that we wanted to create a custom element for a form that automatically sends its state to the server, instead of requiring the user to press a "save" button. We can place this component around a form that works the normal way, and when the JavaScript boots up it'll convert it into its "live" mode. Because this component is for behavior only, we can require users to place markup inside with specific constraints &mdash; all inputs must be named, for example, the form should have the standard "method" and "action" attributes, and it must contain a `<button>` with a type of "submit".
+
+@codeblock(html)...
+<magic-form>
+  <form action="/form-submit" method="POST">
+    <input name="first" id="first">
+    <label for="first">First name</label>
+
+    <input name="last" id="last">
+    <label for="last">Last name</label>
+
+    <button type="submit">Save</button>
+  </form>
+</magic-form>
+...codeblock
+
+Since we're only reacting to user events, and we don't handle any attributes, we really only need a constructor for our element definition. 
+
+@codeblock(js)...
+class MagicForm extends HTMLElement {
+  constructor() {
+    super();
+
+    // save the input item when changed
+    this.addEventListener("input", async e => {
+      var form = this.querySelector("form");
+      var method = form.getAttribute("method") || "GET";
+      var action = form.getAttribute("action");
+      if (!action) return;
+      var url = new URL(action, window.location);
+
+      // set the button text as an indicator
+      var submit = form.querySelector(`button[type="submit"]`);
+      submit.innerHTML = "Saving changes...";
+      
+      // collect the form data and send
+      var inputs = form.querySelectorAll("input");
+      var response;
+      // if GET, send as URL search parameters
+      if (method == "GET") {
+        for (var input of inputs) {
+          url.searchParams.set(input.name, input.value);
+        }
+        response = await fetch(url.toString());
+      } else {
+        // otherwise, send the form data in the request body
+        var body = new FormData();
+        for (var input of inputs) {
+          body.append(input.name, input.value);
+        }
+        response = await fetch(url.toString(), { method, body });
+      }
+      // update the button with the status
+      submit.innerHTML = response.status < 400 ? "Saved!" : "Unable to auto-save";
+    });
+  } 
+}
+...codeblock
+
+Obviously, this component isn't super robust &mdash; the input events should be debounced, so that we don't submit on every keystroke, and we'd like to have more robust handling for errors and varied input types. But it's a good demonstration of how we can use web components to create progressive enhancement, despite their "JavaScript-required" reputation. 
+
+@subhead Style injection
+
+Another interesting use of behavioral components is to feed values from our JavaScript layer into our styles via CSS custom properties (we'll be talking a lot more about these later, when we get into the shadow DOM). In a recent project, I built an audio player that measures the volume of a clip during playback with the WebAudio API (using <a href="https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode">AnalyserNode</a>), and then dispatched events with those values in realtime. A custom element on the page then set that style as a CSS custom property on itself.
+
+@codeblock(js)...
+class SpeakerBoxxx extends HTMLElement {
+  constructor() {
+    super();
+    player.addEventListener("analysis", e => {
+      this.style.setProperty("--volume", e.detail.volume);
+    });
+  }
+}
+...codeblock
+
+Inside that component on the page, we can use the CSS variable to create effects in time with the audio, like a pumping speaker:
+
+@codeblock(css)...
+.love-below {
+  --pump: calc(1 + var(--volume, 0) * .1);
+  transform: scale(var(--pump));
+}
+...codeblock
+
+From this basic concept, we can insert values from JavaScript into specific areas of the page with just a little filtering logic. In this case, we're actually computing a numerical formula for the style output, but we could just as easily set the `--error` variable between "block" and "none" values, and then use it to trigger a visual cue:
+
+@codeblock(css)...
+.error-ui {
+  display: var(--error, none);
+}
+...codeblock
+
+This isn't the way most people think about web components, in terms of being fully-encapsulated UI (we'll talk about how to build those effectively in the next chapter, using shadow DOM). By contrast, these behavioral components are leaky and not at all isolated from the page. But they're also harmless if they fail to initialize, due to a slow connection or a browser with JavaScript disabled, and they still offer developers a way to organize interactive parts of the page more maintainably than something like jQuery spaghetti code.

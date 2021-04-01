@@ -12,6 +12,7 @@
   {
     "section": "sd-intro",
     "chapters": [
+      "sd-behavioral",
       "sd-shadow",
       "sd-slots",
       "sd-css"

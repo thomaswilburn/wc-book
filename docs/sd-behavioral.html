@@ -1,0 +1,108 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Behavioral components</title>
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="static/highlight/hybrid.css">
+</head>
+<body class="sd-behavioral chapter">
+  <nav class="chapter-links top">
+    <ul>
+      <li class="previous"> <a href="sd-intro.html"> &laquo; Structuring components</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="sd-shadow.html"> Shadow DOM &raquo;</a>
+    </ul>
+  </nav>
+  <main>
+  <aside class="summary">
+    Encapsulated events and manual markup
+  </aside>
+  <h1>Behavioral components</h1>
+<p>A common criticism of web components is that, just like heavier client-side frameworks, they require JavaScript to function properly. This isn't a fatal flaw, necessarily &mdash; most users surf with JS enabled, and it's often required to build a truly accessible experience. But if you're coming from a server-oriented background, particularly something like Rails or Laravel, moving chunks of your page directly into web components may be an abrupt transition.</p>
+<p>However, there's another option: rather than build out custom elements as fully self-contained UI elements, you can use them as wrappers for markup that you define in your server-side templates. In this role, custom elements are behavioral &mdash; a way of easily enhancing a chunk of the page, instead of taking it over completely. This is the method that GitHub uses in their <a href="https://github.com/github/github-elements/">elements collection</a>, which makes sense given that GitHub itself is a Rails monolith.</p>
+<h2 id="enhancing-a-form">Enhancing a form</h2>
+<p>Let's say that we wanted to create a custom element for a form that automatically sends its state to the server, instead of requiring the user to press a "save" button. We can place this component around a form that works the normal way, and when the JavaScript boots up it'll convert it into its "live" mode. Because this component is for behavior only, we can require users to place markup inside with specific constraints &mdash; all inputs must be named, for example, the form should have the standard "method" and "action" attributes, and it must contain a <var>&lt;button&gt;</var> with a type of "submit".</p>
+<code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">magic-form</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-name">form</span> <span class="hljs-attr">action</span>=<span class="hljs-string">&quot;/form-submit&quot;</span> <span class="hljs-attr">method</span>=<span class="hljs-string">&quot;POST&quot;</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">input</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;first&quot;</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;first&quot;</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">label</span> <span class="hljs-attr">for</span>=<span class="hljs-string">&quot;first&quot;</span>&gt;</span>First name<span class="hljs-tag">&lt;/<span class="hljs-name">label</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-name">input</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;last&quot;</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;last&quot;</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">label</span> <span class="hljs-attr">for</span>=<span class="hljs-string">&quot;last&quot;</span>&gt;</span>Last name<span class="hljs-tag">&lt;/<span class="hljs-name">label</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-name">button</span> <span class="hljs-attr">type</span>=<span class="hljs-string">&quot;submit&quot;</span>&gt;</span>Save<span class="hljs-tag">&lt;/<span class="hljs-name">button</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-name">form</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">magic-form</span>&gt;</span></pre></code>
+<p>Since we're only reacting to user events, and we don't handle any attributes, we really only need a constructor for our element definition.</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MagicForm</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+
+    <span class="hljs-comment">// save the input item when changed</span>
+    <span class="hljs-built_in">this</span>.addEventListener(<span class="hljs-string">&quot;input&quot;</span>, <span class="hljs-keyword">async</span> e =&gt; {
+      <span class="hljs-keyword">var</span> form = <span class="hljs-built_in">this</span>.querySelector(<span class="hljs-string">&quot;form&quot;</span>);
+      <span class="hljs-keyword">var</span> method = form.getAttribute(<span class="hljs-string">&quot;method&quot;</span>) || <span class="hljs-string">&quot;GET&quot;</span>;
+      <span class="hljs-keyword">var</span> action = form.getAttribute(<span class="hljs-string">&quot;action&quot;</span>);
+      <span class="hljs-keyword">if</span> (!action) <span class="hljs-keyword">return</span>;
+      <span class="hljs-keyword">var</span> url = <span class="hljs-keyword">new</span> URL(action, <span class="hljs-built_in">window</span>.location);
+
+      <span class="hljs-comment">// set the button text as an indicator</span>
+      <span class="hljs-keyword">var</span> submit = form.querySelector(<span class="hljs-string">`button[type=&quot;submit&quot;]`</span>);
+      submit.innerHTML = <span class="hljs-string">&quot;Saving changes...&quot;</span>;
+      
+      <span class="hljs-comment">// collect the form data and send</span>
+      <span class="hljs-keyword">var</span> inputs = form.querySelectorAll(<span class="hljs-string">&quot;input&quot;</span>);
+      <span class="hljs-keyword">var</span> response;
+      <span class="hljs-comment">// if GET, send as URL search parameters</span>
+      <span class="hljs-keyword">if</span> (method == <span class="hljs-string">&quot;GET&quot;</span>) {
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> input <span class="hljs-keyword">of</span> inputs) {
+          url.searchParams.set(input.name, input.value);
+        }
+        response = <span class="hljs-keyword">await</span> fetch(url.toString());
+      } <span class="hljs-keyword">else</span> {
+        <span class="hljs-comment">// otherwise, send the form data in the request body</span>
+        <span class="hljs-keyword">var</span> body = <span class="hljs-keyword">new</span> FormData();
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> input <span class="hljs-keyword">of</span> inputs) {
+          body.append(input.name, input.value);
+        }
+        response = <span class="hljs-keyword">await</span> fetch(url.toString(), { method, body });
+      }
+      <span class="hljs-comment">// update the button with the status</span>
+      submit.innerHTML = response.status &lt; <span class="hljs-number">400</span> ? <span class="hljs-string">&quot;Saved!&quot;</span> : <span class="hljs-string">&quot;Unable to auto-save&quot;</span>;
+    });
+  } 
+}</pre></code>
+<p>Obviously, this component isn't super robust &mdash; the input events should be debounced, so that we don't submit on every keystroke, and we'd like to have more robust handling for errors and varied input types. But it's a good demonstration of how we can use web components to create progressive enhancement, despite their "JavaScript-required" reputation.</p>
+<h2 id="style-injection">Style injection</h2>
+<p>Another interesting use of behavioral components is to feed values from our JavaScript layer into our styles via CSS custom properties (we'll be talking a lot more about these later, when we get into the shadow DOM). In a recent project, I built an audio player that measures the volume of a clip during playback with the WebAudio API (using <a href="https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode">AnalyserNode</a>), and then dispatched events with those values in realtime. A custom element on the page then set that style as a CSS custom property on itself.</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SpeakerBoxxx</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">super</span>();
+    player.addEventListener(<span class="hljs-string">&quot;analysis&quot;</span>, <span class="hljs-function"><span class="hljs-params">e</span> =&gt;</span> {
+      <span class="hljs-built_in">this</span>.style.setProperty(<span class="hljs-string">&quot;--volume&quot;</span>, e.detail.volume);
+    });
+  }
+}</pre></code>
+<p>Inside that component on the page, we can use the CSS variable to create effects in time with the audio, like a pumping speaker:</p>
+<code class="language-css"><pre><span class="hljs-selector-class">.love-below</span> {
+  --pump: <span class="hljs-built_in">calc</span>(<span class="hljs-number">1</span> + <span class="hljs-built_in">var</span>(--volume, <span class="hljs-number">0</span>) * .<span class="hljs-number">1</span>);
+  <span class="hljs-attribute">transform</span>: <span class="hljs-built_in">scale</span>(<span class="hljs-built_in">var</span>(--pump));
+}</pre></code>
+<p>From this basic concept, we can insert values from JavaScript into specific areas of the page with just a little filtering logic. In this case, we're actually computing a numerical formula for the style output, but we could just as easily set the <var>--error</var> variable between "block" and "none" values, and then use it to trigger a visual cue:</p>
+<code class="language-css"><pre><span class="hljs-selector-class">.error-ui</span> {
+  <span class="hljs-attribute">display</span>: <span class="hljs-built_in">var</span>(--error, none);
+}</pre></code>
+<p>This isn't the way most people think about web components, in terms of being fully-encapsulated UI (we'll talk about how to build those effectively in the next chapter, using shadow DOM). By contrast, these behavioral components are leaky and not at all isolated from the page. But they're also harmless if they fail to initialize, due to a slow connection or a browser with JavaScript disabled, and they still offer developers a way to organize interactive parts of the page more maintainably than something like jQuery spaghetti code.</p>
+  </main>
+  <nav class="chapter-links bottom">
+    <ul>
+      <li class="previous"> <a href="sd-intro.html"> &laquo; Structuring components</a>
+      <li> <a href="index.html">&bigstar;</a>
+      <li class="next"> <a href="sd-shadow.html"> Shadow DOM &raquo;</a>
+    </ul>
+  </nav>
+</body>
+</html>
