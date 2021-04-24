@@ -30,7 +30,7 @@ class ShaderBox extends HTMLElement {
   }
 
   disconnectedCallback() {
-    this.observer.disconnect();
+    this.observer.unobserve(this);
   }
 }
 ...codeblock
@@ -99,7 +99,7 @@ class ViewportWatcher extends HTMLElement {
   }
 
   disconnectedCallback() {
-    this.observer.disconnect();
+    this.observer.unobserve(this);
   }
 
   onIntersection([e]) {

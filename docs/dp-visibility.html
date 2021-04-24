@@ -43,7 +43,7 @@
   }
 
   <span class="hljs-function"><span class="hljs-title">disconnectedCallback</span>(<span class="hljs-params"></span>)</span> {
-    <span class="hljs-built_in">this</span>.observer.disconnect();
+    <span class="hljs-built_in">this</span>.observer.unobserve(<span class="hljs-built_in">this</span>);
   }
 }</pre></code>
 <p>Now, as long as our component is placed in a page, it'l be notified whenever it enters or leaves the viewport. If you want more granular notifications or advance warning, you can pass those as options to the <var>IntersectionObserver()</var> constructor:</p>
@@ -98,7 +98,7 @@ class ViewportWatcher extends HTMLElement {
   }
 
   disconnectedCallback() {
-    this.observer.disconnect();
+    this.observer.unobserve(this);
   }
 
   onIntersection([e]) {
