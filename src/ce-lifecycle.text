@@ -82,7 +82,15 @@ static get observedAttributes() {
 ...codeblock
 
 @sidebar...
-A static getter feels like an odd choice, but it's not without reason: by defining these properties on the class instead of the instance (using the `static` keyword), browsers can optimize observations across tags instead of needing to check individual lists per-element. At the time that custom elements were standardized (and indeed, to this day), static class properties weren't available in all browsers, so a getter provides something that "looks" like a property with a little extra cruft. Once static properties are more common, custom elements should be able to simplify this syntax a bit.
+
+At the time that custom elements were specified, the only way to define a property on an ES5 class definition was through a getter method. We'll use that syntax through the book, because it's well-supported in all browsers that you're likely to encounter in the wild and is common in examples elsewhere. However, as of May 2021 and the release of Safari 14.1, static class fields are available in all browsers, which means it's much easier to declare your `observedAttributes` (and other static fields, which we'll get to later):
+
+@codeblock(js)...
+class StaticElement extends HTMLElement {
+  static observedAttributes = ["src", "title"]
+}
+...codeblock
+
 ...sidebar
 
 The actual lifecycle method is called with three arguments: the name of the attribute, its previous value (if any) and its current value (if any). The first argument is guaranteed, but depending on the mutation the other two may be either a string or null:

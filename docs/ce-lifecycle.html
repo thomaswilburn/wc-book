@@ -76,7 +76,10 @@
   <span class="hljs-keyword">return</span> [ <span class="hljs-string">&quot;src&quot;</span>, <span class="hljs-string">&quot;title&quot;</span> ]
 }</pre></code>
 <aside class="sidebar">
-<p>A static getter feels like an odd choice, but it's not without reason: by defining these properties on the class instead of the instance (using the <var>static</var> keyword), browsers can optimize observations across tags instead of needing to check individual lists per-element. At the time that custom elements were standardized (and indeed, to this day), static class properties weren't available in all browsers, so a getter provides something that "looks" like a property with a little extra cruft. Once static properties are more common, custom elements should be able to simplify this syntax a bit.</p>
+<p>At the time that custom elements were specified, the only way to define a property on an ES5 class definition was through a getter method. We'll use that syntax through the book, because it's well-supported in all browsers that you're likely to encounter in the wild and is common in examples elsewhere. However, as of May 2021 and the release of Safari 14.1, static class fields are available in all browsers, which means it's much easier to declare your <var>observedAttributes</var> (and other static fields, which we'll get to later):</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">StaticElement</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
+  <span class="hljs-keyword">static</span> observedAttributes = [<span class="hljs-string">&quot;src&quot;</span>, <span class="hljs-string">&quot;title&quot;</span>]
+}</pre></code>
 </aside>
 <p>The actual lifecycle method is called with three arguments: the name of the attribute, its previous value (if any) and its current value (if any). The first argument is guaranteed, but depending on the mutation the other two may be either a string or null:</p>
 <table>

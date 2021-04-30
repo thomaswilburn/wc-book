@@ -49,7 +49,9 @@ class CustomElement extends HTMLElement {
 To use this class, just use it as the target of `extends` when defining your custom elements:
 
 @codeblock(js)...
-class ExampleElement extends CustomElement { ...
+class ExampleElement extends CustomElement { 
+  // code goes here
+}
 ...codeblock
 
 @subhead What's going on in there?
@@ -91,6 +93,10 @@ class ExampleElement extends CustomElement {
   static get boundMethods() {
     return [ "onClick", "onKeyDown", "onBlur" ];
   }
+
+  onClick() { /* ... */ }
+  onKeyDown() { /* ... */ }
+  onBlur() { /* ... */ }
 }
 ...codeblock
 
@@ -133,6 +139,31 @@ class ExampleElement extends CustomElement {
 ...codeblock
 
 Our ExampleElement will get `attributeChangedCallback()` notifications for "src", "width", and "height" attributes, but it will also automatically have `src`, `width`, and `height` properties on the element itself that affect those attributes. This means you can call `setAttribute()` a lot less in your code, and your element will behave more like the built-ins that people are used to.
+
+@sidebar...
+
+Just as we can use static class fields to turn the `observedAttributes` getter into a simpler form, we can also simplify our `boundMethods` and `mirroredProps` declarations. Supported in all major browsers as of Safari 14.1 (or elsewhere with a transpiler like Babel), it ends up looking like this:
+
+@codeblock(js)...
+class ExampleElement extends CustomElement {
+  static boundMethods = ["onClick", "onKeyDown", "onBlur"]
+
+  constructor() {
+    this.addEventListener("click", this.onClick);
+    this.addEventListener("keydown", this.onKeyDown);
+    this.addEventListener("blur", this.onBlur);
+  }
+
+  static observedAttributes = ["src", "width", "height"]
+  static mirroredProps = ["src", "width", "height"]
+
+  onClick() { /* ... */ }
+  onKeyDown() { /* ... */ }
+  onBlur() { /* ... */ }
+}
+...codeblock
+
+...sidebar
 
 Attributes should almost always have mirrored properties. We don't just use the `observedAttributes` array as the source for this integration, because you may often want to write custom getter/setter functions for some attributes &mdash; for example, a getter for a URL-based attribute might return a fully-resolved and -qualified URL instead of the literal attribute string value.
 

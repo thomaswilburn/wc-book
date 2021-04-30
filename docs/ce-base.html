@@ -59,7 +59,9 @@
 
 }</pre></code>
 <p>To use this class, just use it as the target of <var>extends</var> when defining your custom elements:</p>
-<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExampleElement</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">CustomElement</span> </span>{ ...</pre></code>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExampleElement</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">CustomElement</span> </span>{ 
+  <span class="hljs-comment">// code goes here</span>
+}</pre></code>
 <h2 id="whats-going-on-in-there">What's going on in there?</h2>
 <p>Most of the work of our base class takes place in the constructor. First, we call <var>super()</var>, as we're required to do by the spec. Next, we use <var>new.target</var> to get a reference to the actual class being constructed &mdash; the one for our element itself, not <var>CustomElement</var> or <var>HTMLElement</var>.</p>
 <p>With the class definition in hand, we can start eliminating boilerplate. The first thing we do is look at the class to see if it has a <var>boundMethods</var> property (or, more accurately, a getter that returns an array). All of those methods will be bound to this particular instance, so that their <var>this</var> value will always be the element, which makes it easier to set them as event listeners or callbacks. Essentially, we're going from this:</p>
@@ -91,6 +93,10 @@
   <span class="hljs-keyword">static</span> <span class="hljs-keyword">get</span> <span class="hljs-title">boundMethods</span>() {
     <span class="hljs-keyword">return</span> [ <span class="hljs-string">&quot;onClick&quot;</span>, <span class="hljs-string">&quot;onKeyDown&quot;</span>, <span class="hljs-string">&quot;onBlur&quot;</span> ];
   }
+
+  <span class="hljs-function"><span class="hljs-title">onClick</span>(<span class="hljs-params"></span>)</span> { <span class="hljs-comment">/* ... */</span> }
+  <span class="hljs-function"><span class="hljs-title">onKeyDown</span>(<span class="hljs-params"></span>)</span> { <span class="hljs-comment">/* ... */</span> }
+  <span class="hljs-function"><span class="hljs-title">onBlur</span>(<span class="hljs-params"></span>)</span> { <span class="hljs-comment">/* ... */</span> }
 }</pre></code>
 <p>It's not a huge change, but it's a little less verbose, and having a single place to do binding &mdash; rather than doing it on demand or scattered through the code &mdash; is helpful when collaborating on a team. Using the same pattern as <var>observedAttributes</var> means that these habits reinforce each other.</p>
 <p>Next, our constructor does something similar for mirrored properties:</p>
@@ -122,6 +128,25 @@
   }
 }</pre></code>
 <p>Our ExampleElement will get <var>attributeChangedCallback()</var> notifications for "src", "width", and "height" attributes, but it will also automatically have <var>src</var>, <var>width</var>, and <var>height</var> properties on the element itself that affect those attributes. This means you can call <var>setAttribute()</var> a lot less in your code, and your element will behave more like the built-ins that people are used to.</p>
+<aside class="sidebar">
+<p>Just as we can use static class fields to turn the <var>observedAttributes</var> getter into a simpler form, we can also simplify our <var>boundMethods</var> and <var>mirroredProps</var> declarations. Supported in all major browsers as of Safari 14.1 (or elsewhere with a transpiler like Babel), it ends up looking like this:</p>
+<code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExampleElement</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">CustomElement</span> </span>{
+  <span class="hljs-keyword">static</span> boundMethods = [<span class="hljs-string">&quot;onClick&quot;</span>, <span class="hljs-string">&quot;onKeyDown&quot;</span>, <span class="hljs-string">&quot;onBlur&quot;</span>]
+
+  <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
+    <span class="hljs-built_in">this</span>.addEventListener(<span class="hljs-string">&quot;click&quot;</span>, <span class="hljs-built_in">this</span>.onClick);
+    <span class="hljs-built_in">this</span>.addEventListener(<span class="hljs-string">&quot;keydown&quot;</span>, <span class="hljs-built_in">this</span>.onKeyDown);
+    <span class="hljs-built_in">this</span>.addEventListener(<span class="hljs-string">&quot;blur&quot;</span>, <span class="hljs-built_in">this</span>.onBlur);
+  }
+
+  <span class="hljs-keyword">static</span> observedAttributes = [<span class="hljs-string">&quot;src&quot;</span>, <span class="hljs-string">&quot;width&quot;</span>, <span class="hljs-string">&quot;height&quot;</span>]
+  <span class="hljs-keyword">static</span> mirroredProps = [<span class="hljs-string">&quot;src&quot;</span>, <span class="hljs-string">&quot;width&quot;</span>, <span class="hljs-string">&quot;height&quot;</span>]
+
+  <span class="hljs-function"><span class="hljs-title">onClick</span>(<span class="hljs-params"></span>)</span> { <span class="hljs-comment">/* ... */</span> }
+  <span class="hljs-function"><span class="hljs-title">onKeyDown</span>(<span class="hljs-params"></span>)</span> { <span class="hljs-comment">/* ... */</span> }
+  <span class="hljs-function"><span class="hljs-title">onBlur</span>(<span class="hljs-params"></span>)</span> { <span class="hljs-comment">/* ... */</span> }
+}</pre></code>
+</aside>
 <p>Attributes should almost always have mirrored properties. We don't just use the <var>observedAttributes</var> array as the source for this integration, because you may often want to write custom getter/setter functions for some attributes &mdash; for example, a getter for a URL-based attribute might return a fully-resolved and -qualified URL instead of the literal attribute string value.</p>
 <p>Finally, there's a fun little static method outside of the constructor on our <var>CustomElement</var> class:</p>
 <code class="language-js"><pre><span class="hljs-keyword">static</span> <span class="hljs-function"><span class="hljs-title">define</span>(<span class="hljs-params">tag</span>)</span> {
