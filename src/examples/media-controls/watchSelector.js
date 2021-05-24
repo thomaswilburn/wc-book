@@ -1,25 +1,25 @@
 var watchList = new Map();
 
-var glance = function(watch) {
+var glance = function (watch) {
   var result = document.querySelector(watch.selector);
-  watch.callbacks.forEach(function(c) {
+  watch.callbacks.forEach(function (c) {
     if (c.previous == result) return;
     c(result);
     c.previous = result;
-  })
+  });
 };
 
-var observer = new MutationObserver(function(mutations) {
+var observer = new MutationObserver(function (mutations) {
   watchList.forEach(glance);
 });
 
 observer.observe(document.body, {
   subtree: true,
   childList: true,
-  attributeFilter: ["id"]
+  attributeFilter: ["id"],
 });
 
-var watchSelector = function(selector, callback) {
+var watchSelector = function (selector, callback) {
   var watch = watchList.get(selector) || { selector, callbacks: [] };
   if (watch.callbacks.includes(callback)) return;
   watch.callbacks.push(callback);
@@ -31,10 +31,10 @@ var watchSelector = function(selector, callback) {
   }
 };
 
-var unwatchSelector = function(selector, callback) {
+var unwatchSelector = function (selector, callback) {
   var watching = watchList.get(selector);
   if (!watching) return;
-  watching.callbacks = watching.callbacks.filter(c => c != callback);
+  watching.callbacks = watching.callbacks.filter((c) => c != callback);
   if (!watching.callbacks.length) {
     watchList.delete(selector);
   }

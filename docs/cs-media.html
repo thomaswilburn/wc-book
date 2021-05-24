@@ -7,6 +7,21 @@
   <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Lato|Manuale" rel="stylesheet">
   <link rel="stylesheet" href="static/style.css">
   <link rel="stylesheet" href="static/highlight/hybrid.css">
+
+  <!-- BEGIN TWITTER SUMMARY CARD -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Media controller">
+  <meta name="twitter:site" content="@thomaswilburn">
+  <meta name="twitter:image" content="https://thomaswilburn.github.io/wc-book/static/social.jpg">
+  <meta name="twitter:description" content="">
+
+  <!-- Social sharing meta -->
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Media controller">
+  <meta property="og:site_name" content="Web Components at Work">
+  <meta property="og:image" content="https://thomaswilburn.github.io/wc-book/static/social.jpg">
+  <meta property="og:description" content="">
+
 </head>
 <body class="cs-media chapter">
   <nav class="chapter-links top">
@@ -227,26 +242,26 @@ MediaControls.define(<span class="hljs-string">&quot;media-controls&quot;</span>
 <p>Here's the source for <var>watchSelector.js</var>, which is just an expanded version of the <var>watchID()</var> function in an earlier chapter.</p>
 <code class="language-js"><pre><span class="hljs-keyword">var</span> watchList = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Map</span>();
 
-<span class="hljs-keyword">var</span> glance = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">watch</span>) </span>{
+<span class="hljs-keyword">var</span> glance = <span class="hljs-function"><span class="hljs-keyword">function</span> (<span class="hljs-params">watch</span>) </span>{
   <span class="hljs-keyword">var</span> result = <span class="hljs-built_in">document</span>.querySelector(watch.selector);
-  watch.callbacks.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">c</span>) </span>{
+  watch.callbacks.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> (<span class="hljs-params">c</span>) </span>{
     <span class="hljs-keyword">if</span> (c.previous == result) <span class="hljs-keyword">return</span>;
     c(result);
     c.previous = result;
-  })
+  });
 };
 
-<span class="hljs-keyword">var</span> observer = <span class="hljs-keyword">new</span> MutationObserver(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">mutations</span>) </span>{
+<span class="hljs-keyword">var</span> observer = <span class="hljs-keyword">new</span> MutationObserver(<span class="hljs-function"><span class="hljs-keyword">function</span> (<span class="hljs-params">mutations</span>) </span>{
   watchList.forEach(glance);
 });
 
 observer.observe(<span class="hljs-built_in">document</span>.body, {
   <span class="hljs-attr">subtree</span>: <span class="hljs-literal">true</span>,
   <span class="hljs-attr">childList</span>: <span class="hljs-literal">true</span>,
-  <span class="hljs-attr">attributeFilter</span>: [<span class="hljs-string">&quot;id&quot;</span>]
+  <span class="hljs-attr">attributeFilter</span>: [<span class="hljs-string">&quot;id&quot;</span>],
 });
 
-<span class="hljs-keyword">var</span> watchSelector = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">selector, callback</span>) </span>{
+<span class="hljs-keyword">var</span> watchSelector = <span class="hljs-function"><span class="hljs-keyword">function</span> (<span class="hljs-params">selector, callback</span>) </span>{
   <span class="hljs-keyword">var</span> watch = watchList.get(selector) || { selector, <span class="hljs-attr">callbacks</span>: [] };
   <span class="hljs-keyword">if</span> (watch.callbacks.includes(callback)) <span class="hljs-keyword">return</span>;
   watch.callbacks.push(callback);
@@ -258,10 +273,10 @@ observer.observe(<span class="hljs-built_in">document</span>.body, {
   }
 };
 
-<span class="hljs-keyword">var</span> unwatchSelector = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">selector, callback</span>) </span>{
+<span class="hljs-keyword">var</span> unwatchSelector = <span class="hljs-function"><span class="hljs-keyword">function</span> (<span class="hljs-params">selector, callback</span>) </span>{
   <span class="hljs-keyword">var</span> watching = watchList.get(selector);
   <span class="hljs-keyword">if</span> (!watching) <span class="hljs-keyword">return</span>;
-  watching.callbacks = watching.callbacks.filter(<span class="hljs-function"><span class="hljs-params">c</span> =&gt;</span> c != callback);
+  watching.callbacks = watching.callbacks.filter(<span class="hljs-function">(<span class="hljs-params">c</span>) =&gt;</span> c != callback);
   <span class="hljs-keyword">if</span> (!watching.callbacks.length) {
     watchList.delete(selector);
   }
