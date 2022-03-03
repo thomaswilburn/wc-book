@@ -60,7 +60,7 @@ class InlineSVG extends HTMLElement {
     }
   }
 
-  loadSVG(src) {
+  async loadSVG(src) {
     var response = await fetch(src);
     var svg = await response.text();
     this.innerHTML = svg;
