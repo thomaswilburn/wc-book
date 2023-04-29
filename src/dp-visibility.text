@@ -4,7 +4,7 @@ type: chapter
 summary: Out of sight, out of mind
 ...metadata
 
-To be a developer is to be lazy, and to be a <i>good</i> developer is to teach a computer to be as lazy as you are.
+To be a developer is to be lazy, and to be a <em>good</em> developer is to teach a computer to be as lazy as you are.
 
 For certain types of application, the lifecycle callbacks offered by the custom element API &mdash; connection, disconnection, and attribute change &mdash; aren't sufficient. We don't just need to know if an element is present in the DOM, but also whether it is (potentially) visible, so we can do as little work as possible:
 

@@ -5,7 +5,7 @@ type: chapter
 
 The media elements added in HTML5, `<audio>` and `<video>`, offer built-in UI via an attribute toggle. However, that UI isn't customizable in any real sense &mdash; certainly not in a cross-browser way. If you want to create a styled play button, you need to implement it yourself.
 
-I built this element for a multimedia story at NPR. Being a radio organization, we've done lots of audio-centric projects before &mdash; in my <a href="http://blog.apps.npr.org/2019/05/17/white-lies.html">retrospective for <i>White Lies</i></a>, for example, you can see sample code for a player that loaded files spread throughout the story (and read about how making it work on iOS poses an extra challenge). However, one of the nice things about a custom element is that it gives you more of a building block: instead of needing to build a monolithic player that runs across a whole presentation, I can instead build a single player control button as a discrete unit, then wire those pieces together as needed.
+I built this element for a multimedia story at NPR. Being a radio organization, we've done lots of audio-centric projects before &mdash; in my <a href="http://blog.apps.npr.org/2019/05/17/white-lies.html">retrospective for <cite>White Lies</cite></a>, for example, you can see sample code for a player that loaded files spread throughout the story (and read about how making it work on iOS poses an extra challenge). However, one of the nice things about a custom element is that it gives you more of a building block: instead of needing to build a monolithic player that runs across a whole presentation, I can instead build a single player control button as a discrete unit, then wire those pieces together as needed.
 
 This component was built in our <a href="https://github.com/nprapps/interactive-template">interactive template</a>, which bundles JavaScript using CommonJS modules. That also allows us to load HTML templates from separate files using `require()`, which is handy &mdash; no long, clumsy string literals here. Tools like WebPack and Rollup also let you do this from ES6 import statements, and I highly recommend working out how. Otherwise, I've built tools that use `fetch()` and the <a href="https://developer.mozilla.org/en-US/docs/Web/API/CustomElementRegistry/whenDefined">`customElements.whenDefined()`</a> function to support async component loading, but it definitely feels less seamless. If only HTML imports were still an option...
 
@@ -46,7 +46,7 @@ In <a href="https://github.com/thomaswilburn/radio-v2/blob/master/audio-player.j
 
 @subsubhead Style hooks
 
-For this particular component, we're using two CSS variables to expose styling from outside. By setting `--button-bg` or `--button-fg` on a rule that targets our media elements, you can change them to whatever theme colors you want. 
+For this particular component, we're using two CSS variables to expose styling from outside. By setting `--button-bg` or `--button-fg` on a rule that targets our media elements, you can change them to whatever theme colors you want.
 
 @codeblock(html)...
 <media-controls src="example.mp3">
