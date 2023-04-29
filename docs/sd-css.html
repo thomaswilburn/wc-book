@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
@@ -26,9 +26,9 @@
 <body class="sd-css chapter">
   <nav class="chapter-links top">
     <ul>
-      <li class="previous"> <a href="sd-slots.html"> &laquo; Slots</a>
+      <li class="previous"> <a rel="prev" href="sd-slots.html"> &laquo; Slots</a>
       <li> <a href="index.html">&bigstar;</a>
-      <li class="next"> <a href="dp-intro.html"> Platform design patterns &raquo;</a>
+      <li class="next"> <a rel="next" href="dp-intro.html"> Platform design patterns &raquo;</a>
     </ul>
   </nav>
   <main>
@@ -83,13 +83,13 @@
 <li>specify URLs to images for backgrounds or pseudoelements, giving some skinning capability without using <var>&lt;slot&gt;</var></li>
 <li>adjust the timing for animations, or disable them by setting <var>--animation-duration: 0</var></li>
 </ul>
-<p>Now, key to this is that, while a few CSS variables can do a surprising amount when combined with <var>calc()</var> (or <var>clamp()</var>, <var>min()</var>, <var>max()</var>, etc.), these are <i>very specific</i> adjustments that are made possible. Ultimately, that's a good thing, as it lets you choose which adjustments are safe to allow and which ones will break your component. But it does mean that these theming options must be very clearly documented and communicated to developers. If you're working on multiple components, it may be helpful to pick a namespace or a common set of variable names, to make them easy to remember or define across the page.</p>
+<p>Now, key to this is that, while a few CSS variables can do a surprising amount when combined with <var>calc()</var> (or <var>clamp()</var>, <var>min()</var>, <var>max()</var>, etc.), these are <em>very specific</em> adjustments that are made possible. Ultimately, that's a good thing, as it lets you choose which adjustments are safe to allow and which ones will break your component. But it does mean that these theming options must be very clearly documented and communicated to developers. If you're working on multiple components, it may be helpful to pick a namespace or a common set of variable names, to make them easy to remember or define across the page.</p>
   </main>
   <nav class="chapter-links bottom">
     <ul>
-      <li class="previous"> <a href="sd-slots.html"> &laquo; Slots</a>
+      <li class="previous"> <a rel="prev" href="sd-slots.html"> &laquo; Slots</a>
       <li> <a href="index.html">&bigstar;</a>
-      <li class="next"> <a href="dp-intro.html"> Platform design patterns &raquo;</a>
+      <li class="next"> <a rel="next" href="dp-intro.html"> Platform design patterns &raquo;</a>
     </ul>
   </nav>
 </body>

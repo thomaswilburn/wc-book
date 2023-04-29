@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
@@ -26,9 +26,9 @@
 <body class="ce-attributes chapter">
   <nav class="chapter-links top">
     <ul>
-      <li class="previous"> <a href="ce-lifecycle.html"> &laquo; The custom element lifecycle</a>
+      <li class="previous"> <a rel="prev" href="ce-lifecycle.html"> &laquo; The custom element lifecycle</a>
       <li> <a href="index.html">&bigstar;</a>
-      <li class="next"> <a href="ce-base.html"> Using a base class &raquo;</a>
+      <li class="next"> <a rel="next" href="ce-base.html"> Using a base class &raquo;</a>
     </ul>
   </nav>
   <main>
@@ -78,7 +78,7 @@
     }
   }
 
-  <span class="hljs-function"><span class="hljs-title">loadSVG</span>(<span class="hljs-params">src</span>)</span> {
+  <span class="hljs-keyword">async</span> <span class="hljs-function"><span class="hljs-title">loadSVG</span>(<span class="hljs-params">src</span>)</span> {
     <span class="hljs-keyword">var</span> response = <span class="hljs-keyword">await</span> fetch(src);
     <span class="hljs-keyword">var</span> svg = <span class="hljs-keyword">await</span> response.text();
     <span class="hljs-built_in">this</span>.innerHTML = svg;
@@ -148,14 +148,14 @@
 }</pre></code>
 <p>In this case, accessing <var>element.src</var> will still trigger code flow through the <var>attributeChangedCallback()</var>, and the values we assign there will always be inspectable. We can augment the getter if we want, by having it return a <var>URL</var> object or a fully-qualified value, as many element "src" attributes do.</p>
 <p>It's also possible to go the other way &mdash; to treat properties getters/setters as the source of truth, and to make our <var>attributeChangedCallback()</var> a much shorter method that just calls those setters. However, this tends to be more verbose, and if you want the attributes in the DOM to reflect the property values, you'll need to be careful to avoid infinite loops.</p>
-<p>That said, attributes are limited in that they can only accept and return string values. If you need to be able to configure an element with a complex data structure, like an array or an object, consider <i>only</i> using a property getter/setter for that, and skipping the attribute entirely. Don't create attributes that accept something like JSON &mdash; the serialization cost is real, and your users will not thank you for that interface.</p>
+<p>That said, attributes are limited in that they can only accept and return string values. If you need to be able to configure an element with a complex data structure, like an array or an object, consider <em>only</em> using a property getter/setter for that, and skipping the attribute entirely. Don't create attributes that accept something like JSON &mdash; the serialization cost is real, and your users will not thank you for that interface.</p>
 <p>If writing getters and setters for each attribute feels like a lot of work, don't worry: in the next chapter, we're going to automate this and other boilerplate by creating a base class.</p>
   </main>
   <nav class="chapter-links bottom">
     <ul>
-      <li class="previous"> <a href="ce-lifecycle.html"> &laquo; The custom element lifecycle</a>
+      <li class="previous"> <a rel="prev" href="ce-lifecycle.html"> &laquo; The custom element lifecycle</a>
       <li> <a href="index.html">&bigstar;</a>
-      <li class="next"> <a href="ce-base.html"> Using a base class &raquo;</a>
+      <li class="next"> <a rel="next" href="ce-base.html"> Using a base class &raquo;</a>
     </ul>
   </nav>
 </body>

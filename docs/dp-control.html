@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
@@ -26,9 +26,9 @@
 <body class="dp-control chapter">
   <nav class="chapter-links top">
     <ul>
-      <li class="previous"> <a href="dp-integration.html"> &laquo; Frameworks and integration</a>
+      <li class="previous"> <a rel="prev" href="dp-integration.html"> &laquo; Frameworks and integration</a>
       <li> <a href="index.html">&bigstar;</a>
-      <li class="next"> <a href="cs-intro.html"> Case studies &raquo;</a>
+      <li class="next"> <a rel="next" href="cs-intro.html"> Case studies &raquo;</a>
     </ul>
   </nav>
   <main>
@@ -38,7 +38,7 @@
   <h1>Association and control</h1>
 <p>If you've worked with form elements before, you may be familiar with the way that labels can be associated with an input element using the "for" attribute:</p>
 <code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">input</span> <span class="hljs-attr">type</span>=<span class="hljs-string">&quot;checkbox&quot;</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;controlled&quot;</span>&gt;</span>
-<span class="hljs-tag">&lt;<span class="hljs-name">label</span> <span class="hljs-attr">for</span>=<span class="hljs-string">&quot;controlled&quot;</span>&gt;</span>Label goes here<span class="hljs-tag">&lt;/<span class="hljs-name">label</span>&gt;</span></pre></code>
+<span class="hljs-tag">&lt;<span class="hljs-name">label</span> <span class="hljs-attr">for</span>=<span class="hljs-string">&quot;controlled&quot;</span>&gt;</span>Label goes here<span class="hljs-tag">&lt;/<span class="hljs-name">label</span>&gt;</span></pre></code>
 <p>Labels associated with a form element in this way have several useful side effects. Clicking on the label will (in this case) toggle the checkbox. It also tells screen readers how to describe the input. There's a similar pattern with a lot of ARIA attributes, like <a href="https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/ARIA_Techniques/Using_the_aria-labelledby_attribute">"aria-labelledby"</a> or <a href="https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/ARIA_Techniques/Using_the_aria-activedescendant_attribute">"aria-activedescendant"</a>.</p>
 <p>Being able to link two elements together in a declarative way turns out to be a surprisingly useful pattern, especially if they're not particularly close to each other in the page. We might want to create a floating play button for a media file, for example, and be able to change which audio or video file it controls on the fly.</p>
 <p>Unfortunately, browsers don't offer a great way to automatically associate two elements together, and there are lots of scenarios where a naive implementation (say, running a query from the <var>attributeChangedCallback()</var>) will run into problems:</p>
@@ -73,7 +73,7 @@
   <span class="hljs-keyword">if</span> (!watching.callbacks.length) {
     watchList.delete(id);
   }
-};</pre></code>
+};</pre></code>
 <p>The <var>glance()</var> function called by <var>watch()</var> checks each ID in the map, and notifies the callback function if the value has changed. Since it's called whenever a new callback is added, we cache each ID's previous value on the callback itself, so that we won't trigger extra notifications.</p>
 <code class="language-js"><pre><span class="hljs-keyword">var</span> glance = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">watch</span>) </span>{
   <span class="hljs-keyword">var</span> result = <span class="hljs-built_in">document</span>.getElementById(watch.id);
@@ -82,7 +82,7 @@
     c(result);
     c.previous = result;
   })
-};</pre></code>
+};</pre></code>
 <p>Finally, the piece that ties it all together is the Mutation Observer itself, which tracks additions, removals, and changes to the document. On any changes, we check each ID and notify any callbacks if the located element has changed.</p>
 <code class="language-js"><pre><span class="hljs-keyword">var</span> observer = <span class="hljs-keyword">new</span> MutationObserver(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">mutations</span>) </span>{
   watchList.forEach(glance);
@@ -92,7 +92,7 @@ observer.observe(<span class="hljs-built_in">document</span>.body, {
   <span class="hljs-attr">subtree</span>: <span class="hljs-literal">true</span>,
   <span class="hljs-attr">childList</span>: <span class="hljs-literal">true</span>,
   <span class="hljs-attr">attributeFilter</span>: [<span class="hljs-string">&quot;id&quot;</span>]
-});</pre></code>
+});</pre></code>
 <h2 id="creating-our-element-assocation">Creating our element assocation</h2>
 <p>For demonstration purposes, we'll recreate the click functionality of the label element. To correctly associate a control with the custom element, we'll divide the work into two parts: registering a watch in <var>attributeChangedCallback()</var>, and a second function to be notified if the controlled element changes.</p>
 <code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ClickLabel</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
@@ -132,7 +132,7 @@ observer.observe(<span class="hljs-built_in">document</span>.body, {
       <span class="hljs-built_in">this</span>.control.click();
     }
   }
-}</pre></code>
+}</pre></code>
 <p>With the watch functionality in place, our component should be able to handle all different permutations and orderings of assocation.</p>
 <ul>
 <li>If a matching ID already exists in the DOM, the watch will immediately notify our element during the post-constructor <var>attributeChangedCallback()</var> call.</li>
@@ -147,9 +147,9 @@ observer.observe(<span class="hljs-built_in">document</span>.body, {
   </main>
   <nav class="chapter-links bottom">
     <ul>
-      <li class="previous"> <a href="dp-integration.html"> &laquo; Frameworks and integration</a>
+      <li class="previous"> <a rel="prev" href="dp-integration.html"> &laquo; Frameworks and integration</a>
       <li> <a href="index.html">&bigstar;</a>
-      <li class="next"> <a href="cs-intro.html"> Case studies &raquo;</a>
+      <li class="next"> <a rel="next" href="cs-intro.html"> Case studies &raquo;</a>
     </ul>
   </nav>
 </body>

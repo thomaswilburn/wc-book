@@ -27,7 +27,7 @@ class InlineSVG extends HTMLElement {
 }
 ...codeblock
 
-This element will do its job, basically. But it won't react if you change the source file after connection, and every time you move the element it will run `connectedCallback()` again, triggering a new fetch. 
+This element will do its job, basically. But it won't react if you change the source file after connection, and every time you move the element it will run `connectedCallback()` again, triggering a new fetch.
 
 There's not actually a good reason for any of this to happen when the element is inserted into the DOM anyway. We may have put it there because we associate connection with initialization. But that's not how actual image tags work &mdash; you can create a `new Image()` and set the source to trigger an image download without ever placing it in the page. Why should our image-ish tag be any different?
 
@@ -68,7 +68,7 @@ class InlineSVG extends HTMLElement {
 }
 ...codeblock
 
-By routing "active" code through our attributes, we get the same initial load behavior as we did in the connected callback, but we don't actually have to add it to the DOM first, just like an image tag. Our element will now also fetch updated contents if we alter the source URL at runtime. 
+By routing "active" code through our attributes, we get the same initial load behavior as we did in the connected callback, but we don't actually have to add it to the DOM first, just like an image tag. Our element will now also fetch updated contents if we alter the source URL at runtime.
 
 Using a `switch`/`case` structure for the callback may feel unconventional, especially given the common advice to avoid this language feature. But this is one of the few cases where it makes perfect sense, especially given that multiple attributes might trigger the same action. For example, imagine an element that uses SVG-like tags to draw to a canvas. Updating any of the attributes on this element should cause it to redraw. Using a `switch` statement lets us roll those multiple notifications into a single step:
 
@@ -149,6 +149,6 @@ In this case, accessing `element.src` will still trigger code flow through the `
 
 It's also possible to go the other way &mdash; to treat properties getters/setters as the source of truth, and to make our `attributeChangedCallback()` a much shorter method that just calls those setters. However, this tends to be more verbose, and if you want the attributes in the DOM to reflect the property values, you'll need to be careful to avoid infinite loops.
 
-That said, attributes are limited in that they can only accept and return string values. If you need to be able to configure an element with a complex data structure, like an array or an object, consider <i>only</i> using a property getter/setter for that, and skipping the attribute entirely. Don't create attributes that accept something like JSON &mdash; the serialization cost is real, and your users will not thank you for that interface.
+That said, attributes are limited in that they can only accept and return string values. If you need to be able to configure an element with a complex data structure, like an array or an object, consider <em>only</em> using a property getter/setter for that, and skipping the attribute entirely. Don't create attributes that accept something like JSON &mdash; the serialization cost is real, and your users will not thank you for that interface.
 
 If writing getters and setters for each attribute feels like a lot of work, don't worry: in the next chapter, we're going to automate this and other boilerplate by creating a base class.

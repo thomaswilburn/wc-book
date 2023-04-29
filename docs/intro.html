@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
@@ -26,9 +26,9 @@
 <body class="intro intermission">
   <nav class="chapter-links top">
     <ul>
-      <li class="previous"> <a href="index.html"> &laquo; Table of Contents</a>
+      <li class="previous"> <a rel="prev" href="index.html"> &laquo; Table of Contents</a>
       <li> <a href="index.html">&bigstar;</a>
-      <li class="next"> <a href="ce-intro.html"> Custom element fundamentals &raquo;</a>
+      <li class="next"> <a rel="next" href="ce-intro.html"> Custom element fundamentals &raquo;</a>
     </ul>
   </nav>
   <main>
@@ -40,7 +40,7 @@
 <p>This was pretty basic stuff, but I had always thought about creating new tags as something that only browser developers could do. The new elements in HTML5, like <var>&lt;article&gt;</var> or <var>&lt;nav&gt;</var>, were still fresh in my memory. The idea that we could just make our own tags, with complex behavior and complete control, felt like magic.</p>
 <p>A year or two later, at The Seattle Times, I needed a way to insert responsive iframes into a WordPress page for my team's interactive graphics. This is a common problem, but I didn't like the solutions other newsrooms had developed: they felt clunky, requiring a loader script or a few lines of code to initialize each frame. The <a href="https://github.com/seattletimes/responsive-frame">custom element I built</a> didn't have these issues &mdash; it registered itself automatically, and could clean up after itself if it was removed dynamically. I was hooked.</p>
 <p>After joining NPR in 2018, I kept finding places where this technology was a natural fit for the problems I was solving. Our 2020 primary coverage not only used them for rich content in our liveblogs, but <a href="https://blog.apps.npr.org/2020/03/16/custom-elements-primaries.html">they were the fundamental architecture for our election results</a>. Although we didn't eliminate the legacy Pym.js embeds that the team had created years prior, a backwards-compatible <a href="https://github.com/nprapps/sidechain">Sidechain</a> element became a replacement in special projects. Even within our dailygraphics, custom elements became a quick and easy way to offer some standard UI widgets without having to load a new library beyond the D3 we were already using.</p>
-<p>Being able to create these tags still feels like magic. They provide an easy and quick way to organize code, true, but they also provide a natural hook for incorporating other web APIs. In explaining how the browser's existing tags work, they give us a window into deeper insight of the platform itself. By giving us a way to hook behavior and styles directly into markup, they reaffirm the three, balanced languages that underly the web. But most importantly, it makes writing HTML feel <i>personal</i> again, like it did when I first learned it to make novelty sites in high school.</p>
+<p>Being able to create these tags still feels like magic. They provide an easy and quick way to organize code, true, but they also provide a natural hook for incorporating other web APIs. In explaining how the browser's existing tags work, they give us a window into deeper insight of the platform itself. By giving us a way to hook behavior and styles directly into markup, they reaffirm the three, balanced languages that underly the web. But most importantly, it makes writing HTML feel <em>personal</em> again, like it did when I first learned it to make novelty sites in high school.</p>
 <p>You shouldn't need five years of experimentation to see these benefits. This book is an attempt to distill my experience and lessons learned along the way, so that you too can see how expressive, elegant, and <i>fun</i> web components can be. I hope you'll enjoy them as much as I do.</p>
 <h2 id="how-to-read-this-book">How to read this book</h2>
 <p>If you've never worked with web components before, you can start at the beginning and work your way through &mdash; each chapter is written to lead into the next. I've assumed some fluency with modern JavaScript: you should be comfortable with classes and class inheritance, function binding, and standard DOM methods like <var>querySelectorAll()</var>.</p>
@@ -54,9 +54,9 @@
   </main>
   <nav class="chapter-links bottom">
     <ul>
-      <li class="previous"> <a href="index.html"> &laquo; Table of Contents</a>
+      <li class="previous"> <a rel="prev" href="index.html"> &laquo; Table of Contents</a>
       <li> <a href="index.html">&bigstar;</a>
-      <li class="next"> <a href="ce-intro.html"> Custom element fundamentals &raquo;</a>
+      <li class="next"> <a rel="next" href="ce-intro.html"> Custom element fundamentals &raquo;</a>
     </ul>
   </nav>
 </body>
