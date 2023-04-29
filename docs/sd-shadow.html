@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
@@ -26,9 +26,9 @@
 <body class="sd-shadow chapter">
   <nav class="chapter-links top">
     <ul>
-      <li class="previous"> <a href="sd-behavioral.html"> &laquo; Behavioral components</a>
+      <li class="previous"> <a rel="prev" href="sd-behavioral.html"> &laquo; Behavioral components</a>
       <li> <a href="index.html">&bigstar;</a>
-      <li class="next"> <a href="sd-slots.html"> Slots &raquo;</a>
+      <li class="next"> <a rel="next" href="sd-slots.html"> Slots &raquo;</a>
     </ul>
   </nav>
   <main>
@@ -55,13 +55,13 @@
     <span class="hljs-keyword">var</span> shadow = <span class="hljs-built_in">this</span>.attachShadow({ <span class="hljs-attr">mode</span>: <span class="hljs-string">&quot;open&quot;</span> });
     <span class="hljs-comment">// you can also access the shadow from this.shadowRoot</span>
   }
-}</pre></code>
+}</pre></code>
 <aside class="sidebar">
 <p><var>attachShadow()</var> has to be called with a mode, which can be either "open" or "closed". If it's open, the element will have a <var>shadowRoot</var> property that can be used to get into it from ouside. Most experts agree that, given the infamously leaky nature of JavaScript, there's not really any security benefit of a closed root, and it makes debugging a lot harder. Default to open, if you can.</p>
 </aside>
 <p>Keep in mind, the shadow root effectively turns its host into a replaced element, like an <var>&lt;img&gt;</var> or <var>&lt;audio&gt;</var> tag. You can place child elements in the light DOM of the host, but they won't show up on the page automatically.</p>
 <p>Let's imagine we're creating a media player for a podcast page as a component. For users of the media player, the element will look something like this:</p>
-<code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">podcast-player</span> <span class="hljs-attr">src</span>=<span class="hljs-string">&quot;episode.mp3&quot;</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">podcast-player</span>&gt;</span></pre></code>
+<code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">podcast-player</span> <span class="hljs-attr">src</span>=<span class="hljs-string">&quot;episode.mp3&quot;</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">podcast-player</span>&gt;</span></pre></code>
 <p>Here's the actual implementation, and a demo that plays an episode of NPR's <i>Code Switch</i>:</p>
 <code class="language-html"><pre><span class="hljs-tag">&lt;<span class="hljs-name">script</span>&gt;</span><span class="javascript">
 <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PodcastPlayer</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">HTMLElement</span> </span>{
@@ -210,7 +210,7 @@ customElements.define("podcast-player", PodcastPlayer);
 
     <span class="hljs-comment">/* ... rest of constructor */</span>
   }
-}</pre></code>
+}</pre></code>
 <p>This code looks for a static <var>template</var> property on the class definition. If it's there, it splats that string into the shadow root. Any elements in the template with an "as" attribute are made available on the <var>elements</var> property for easy access. This isn't a sophisticated templating system, but it handles a lot of use cases without a lot of code, especially with the other convenience features of our base class. For example, a simple button element:</p>
 <code class="language-js"><pre><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ButtonExample</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">CustomElement</span> </span>{
   <span class="hljs-function"><span class="hljs-title">constructor</span>(<span class="hljs-params"></span>)</span> {
@@ -232,15 +232,15 @@ customElements.define("podcast-player", PodcastPlayer);
       &lt;button as=&quot;alertButton&quot;&gt;Click me&lt;/button&gt;
     `</span>
   }
-}</pre></code>
+}</pre></code>
 <p>With modern bundling tools, like Webpack or Rollup, you can write that template as a separate HTML file and import it. From there, you can use the lookup on <var>this.elements</var> to mount a more comprehensive templating solution, like <a href="https://lit-html.polymer-project.org/">lit-html</a>, onto sections of the shadow if you need to.</p>
 <p>That said, my experience is that a large and complex shadow DOM is usually something to be avoided. Every shadow boundary creates additional complexity for managing focus, event listeners, DOM manipulation, and even inspecting components with the dev tools. The ideal is to keep the shadow to a minimum &mdash; use it for UI controls and decoration &mdash; but leave as much of the page in the light as possible. In the next chapter, we'll see how to make that a reality.</p>
   </main>
   <nav class="chapter-links bottom">
     <ul>
-      <li class="previous"> <a href="sd-behavioral.html"> &laquo; Behavioral components</a>
+      <li class="previous"> <a rel="prev" href="sd-behavioral.html"> &laquo; Behavioral components</a>
       <li> <a href="index.html">&bigstar;</a>
-      <li class="next"> <a href="sd-slots.html"> Slots &raquo;</a>
+      <li class="next"> <a rel="next" href="sd-slots.html"> Slots &raquo;</a>
     </ul>
   </nav>
 </body>

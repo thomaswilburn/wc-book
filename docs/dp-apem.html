@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
@@ -26,9 +26,9 @@
 <body class="dp-apem chapter">
   <nav class="chapter-links top">
     <ul>
-      <li class="previous"> <a href="dp-intro.html"> &laquo; Platform design patterns</a>
+      <li class="previous"> <a rel="prev" href="dp-intro.html"> &laquo; Platform design patterns</a>
       <li> <a href="index.html">&bigstar;</a>
-      <li class="next"> <a href="dp-dsl.html"> Component microformats &raquo;</a>
+      <li class="next"> <a rel="next" href="dp-dsl.html"> Component microformats &raquo;</a>
     </ul>
   </nav>
   <main>
@@ -48,20 +48,20 @@
 <p>I've worked with <var>&lt;audio&gt;</var> and <var>&lt;video&gt;</var> a great deal while building rich news pages, and they're not perfect, but I think they do serve as a fine example of how to structure the interface to your element. In this chapter, we'll talk about when to use (or not) these inputs effectively effectively &mdash; with one exception, child elements, which will be examined more closely in the chapter on domain-specific languages.</p>
 <h2 id="attributes">Attributes</h2>
 <ul>
-<li><b>Use for</b>: initial/default configuration values, string- or number-based configuration</li>
-<li><b>Don't use for</b>: complex or nested configuration values, anything that updates very quickly</li>
+<li><strong>Use for</strong>: initial/default configuration values, string- or number-based configuration</li>
+<li><strong>Don't use for</strong>: complex or nested configuration values, anything that updates very quickly</li>
 </ul>
 <p>We've talked a lot about attributes, and clearly I'm a fan. In general, if you have simple configuration that you want to be able to set on element creation, from a template, or from the dev tools, attributes are a great choice. Ideally, all of these should be mirrored to properties, since it makes them much easier to use from JavaScript.</p>
 <h2 id="properties">Properties</h2>
 <ul>
-<li><b>Use for</b>: complex runtime options or transient values, JavaScript framework integration</li>
-<li><b>Don't use for</b>: anything that creates side effects as a part of the property setter</li>
+<li><strong>Use for</strong>: complex runtime options or transient values, JavaScript framework integration</li>
+<li><strong>Don't use for</strong>: anything that creates side effects as a part of the property setter</li>
 </ul>
 <p>A common pattern with properties on built-in elements is that they reflect the "live" state of the element, whereas attributes represent the "starting" configuration. For example, an input may have the "checked" attribute specified to set its initial state, but the current value of the input state is available via the <var>checked</var> property, and may or may not update the attribute to match.</p>
 <p>Properties may also be used with getter/setter functions to trigger updates to the element itself. For example, setting <var>currentTime</var> on a video element will cause it to seek to a new position to match. This pattern should be used with caution: developers generally expect that property access should be cheap and side effect-free. If something will be disruptive to users, such as starting audio or occupying the main thread for a significant time, it should be moved to a method instead (see below).</p>
 <p>Properties are also useful on custom elements because they're able to accept arrays, object, and other reference types, which means that they can be used seamlessly for data binding in frameworks like Preact or Vue. We'll talk more about that in a future chapter.</p>
 <p>One thing to be aware of, when loading custom tag definitions asynchronously (through bundle-splitting or the <var>import()</var> feature of ES modules) is that code may set properties on them before <var>customElements.define()</var> runs and they're upgraded to their new class definition. You can make sure that getter/setter properties correctly fire for these values by adding this code to your element constructor:</p>
-<code class="language-js"><pre><span class="hljs-comment">// definedProps is a list of properties with </span>
+<code class="language-js"><pre><span class="hljs-comment">// definedProps is a list of properties with</span>
 <span class="hljs-comment">// getters/setters defined on the class</span>
 <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> prop <span class="hljs-keyword">of</span> definedProps) {
   <span class="hljs-comment">// check to see if the property was set directly</span>
@@ -76,8 +76,8 @@
 <p>You should not do this in the constructor for properties that are meant to be set via attributes, or that use the <var>mirroredProps</var> array from our base class example, since that would set a DOM attribute on the element, and that's illegal in a custom element constructor.</p>
 <h2 id="methods">Methods</h2>
 <ul>
-<li><b>Use for</b>: Impactful changes to the element or page, asynchronous processes</li>
-<li><b>Don't use for</b>: Setting configuration or state that persists</li>
+<li><strong>Use for</strong>: Impactful changes to the element or page, asynchronous processes</li>
+<li><strong>Don't use for</strong>: Setting configuration or state that persists</li>
 </ul>
 <p>There's less confusion over when to use a method than betwen a property and an attribute. Do you want to explicitly do something? A method is probably the ideal choice.</p>
 <p>It is worth reflecting, however, on what things in the web platform are considered "doing something." For example, setting the "src" attribute for an image is not "doing something" enough to be a method, even though it will create a network request (with cookies!) and trigger layout once the image is loaded. Likewise, for historical reasons, the <var>offsetWidth</var> property performs a potentially lengthy layout when accessed and should probably be a method, but we're stuck with it now. Learn from those mistakes. It's easier to extend the capabilities of a method call &mdash; putting an action behind a property access is essentially forcing it to be a synchronous, single-argument function call, forever.</p>
@@ -92,8 +92,8 @@
 </ul>
 <h2 id="events">Events</h2>
 <ul>
-<li><b>Use for</b>: notifications about ongoing work, particularly lengthy processes</li>
-<li><b>Don't use for</b>: one-time values, such as method call results</li>
+<li><strong>Use for</strong>: notifications about ongoing work, particularly lengthy processes</li>
+<li><strong>Don't use for</strong>: one-time values, such as method call results</li>
 </ul>
 <p>"Props down, events up" is a common pattern in frameworks, but it's also a good architecture choice for web components. In modern browsers, it's pretty easy to dispatch an event from a custom element:</p>
 <code class="language-js"><pre><span class="hljs-keyword">var</span> event = <span class="hljs-keyword">new</span> CustomEvent(<span class="hljs-string">&quot;eventname&quot;</span>, {
@@ -119,9 +119,9 @@
   </main>
   <nav class="chapter-links bottom">
     <ul>
-      <li class="previous"> <a href="dp-intro.html"> &laquo; Platform design patterns</a>
+      <li class="previous"> <a rel="prev" href="dp-intro.html"> &laquo; Platform design patterns</a>
       <li> <a href="index.html">&bigstar;</a>
-      <li class="next"> <a href="dp-dsl.html"> Component microformats &raquo;</a>
+      <li class="next"> <a rel="next" href="dp-dsl.html"> Component microformats &raquo;</a>
     </ul>
   </nav>
 </body>

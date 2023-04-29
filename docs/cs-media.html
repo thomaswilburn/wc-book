@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
@@ -26,9 +26,9 @@
 <body class="cs-media chapter">
   <nav class="chapter-links top">
     <ul>
-      <li class="previous"> <a href="cs-shader.html"> &laquo; WebGL shader preview</a>
+      <li class="previous"> <a rel="prev" href="cs-shader.html"> &laquo; WebGL shader preview</a>
       <li> <a href="index.html">&bigstar;</a>
-      <li class="next"> <a href="cs-radio.html"> Podcast client &raquo;</a>
+      <li class="next"> <a rel="next" href="cs-radio.html"> Podcast client &raquo;</a>
     </ul>
   </nav>
   <main>
@@ -37,7 +37,7 @@
   </aside>
   <h1>Media controller</h1>
 <p>The media elements added in HTML5, <var>&lt;audio&gt;</var> and <var>&lt;video&gt;</var>, offer built-in UI via an attribute toggle. However, that UI isn't customizable in any real sense &mdash; certainly not in a cross-browser way. If you want to create a styled play button, you need to implement it yourself.</p>
-<p>I built this element for a multimedia story at NPR. Being a radio organization, we've done lots of audio-centric projects before &mdash; in my <a href="http://blog.apps.npr.org/2019/05/17/white-lies.html">retrospective for <i>White Lies</i></a>, for example, you can see sample code for a player that loaded files spread throughout the story (and read about how making it work on iOS poses an extra challenge). However, one of the nice things about a custom element is that it gives you more of a building block: instead of needing to build a monolithic player that runs across a whole presentation, I can instead build a single player control button as a discrete unit, then wire those pieces together as needed.</p>
+<p>I built this element for a multimedia story at NPR. Being a radio organization, we've done lots of audio-centric projects before &mdash; in my <a href="http://blog.apps.npr.org/2019/05/17/white-lies.html">retrospective for <cite>White Lies</cite></a>, for example, you can see sample code for a player that loaded files spread throughout the story (and read about how making it work on iOS poses an extra challenge). However, one of the nice things about a custom element is that it gives you more of a building block: instead of needing to build a monolithic player that runs across a whole presentation, I can instead build a single player control button as a discrete unit, then wire those pieces together as needed.</p>
 <p>This component was built in our <a href="https://github.com/nprapps/interactive-template">interactive template</a>, which bundles JavaScript using CommonJS modules. That also allows us to load HTML templates from separate files using <var>require()</var>, which is handy &mdash; no long, clumsy string literals here. Tools like WebPack and Rollup also let you do this from ES6 import statements, and I highly recommend working out how. Otherwise, I've built tools that use <var>fetch()</var> and the <a href="https://developer.mozilla.org/en-US/docs/Web/API/CustomElementRegistry/whenDefined"><var>customElements.whenDefined()</var></a> function to support async component loading, but it definitely feels less seamless. If only HTML imports were still an option...</p>
 <h2 id="media-controlsjs"><var>media-controls.js</var></h2>
 <code class="language-js"><pre><span class="hljs-keyword">var</span> CustomElement = <span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;./customElement&quot;</span>);
@@ -302,9 +302,9 @@ observer.observe(<span class="hljs-built_in">document</span>.body, {
   </main>
   <nav class="chapter-links bottom">
     <ul>
-      <li class="previous"> <a href="cs-shader.html"> &laquo; WebGL shader preview</a>
+      <li class="previous"> <a rel="prev" href="cs-shader.html"> &laquo; WebGL shader preview</a>
       <li> <a href="index.html">&bigstar;</a>
-      <li class="next"> <a href="cs-radio.html"> Podcast client &raquo;</a>
+      <li class="next"> <a rel="next" href="cs-radio.html"> Podcast client &raquo;</a>
     </ul>
   </nav>
 </body>
